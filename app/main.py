@@ -7,6 +7,7 @@ import time
 import shutil
 import uuid
 import asyncio
+import secrets  # <--- НОВОЕ: Библиотека для криптографической защиты пароля
 
 # Імпорт твоїх скриптів
 from app.scripts.debts import run_debts_analysis
@@ -36,7 +37,6 @@ def remove_single_file(path: str):
         except Exception as e:
             print(f"Не зміг видалити файл {path}: {str(e)}")
 
-# НОВЕ: Функція індивідуального таймера
 async def delete_after_delay(file_path: str, delay_seconds: int = 1800):
     await asyncio.sleep(delay_seconds)
     remove_single_file(file_path)
@@ -55,7 +55,8 @@ def cleanup_old_files():
 
 @app.post("/verify-password")
 async def verify_password(access_password: str = Form(...)):
-    if access_password == SECRET_ACCESS_KEY:
+    # НОВОЕ: Безопасное сравнение паролей (защита от Timing Attack)
+    if secrets.compare_digest(access_password, SECRET_ACCESS_KEY):
         return {"status": "success"}
     raise HTTPException(status_code=401, detail="Wrong password")
 
@@ -65,12 +66,15 @@ async def read_root(request: Request):
 
 @app.get("/downloads/{filename}")
 async def secure_download(filename: str, background_tasks: BackgroundTasks):
-    file_path = os.path.join(DOWNLOAD_DIR, filename)
+    # НОВОЕ: Защита от Directory Traversal (никто не выйдет за пределы папки downloads)
+    safe_filename = os.path.basename(filename)
+    file_path = os.path.join(DOWNLOAD_DIR, safe_filename)
+    
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Файл вже видалено з міркувань безпеки. Завантажте звіт наново.")
     
     background_tasks.add_task(remove_single_file, file_path)
-    return FileResponse(path=file_path, filename=filename)
+    return FileResponse(path=file_path, filename=safe_filename)
 
 @app.post("/upload")
 async def handle_upload(
@@ -94,7 +98,8 @@ async def handle_upload(
         })
 
     if report_type == "debts":
-        if access_password != SECRET_ACCESS_KEY:
+        # НОВОЕ: Безопасное сравнение паролей (защита от Timing Attack)
+        if not secrets.compare_digest(access_password, SECRET_ACCESS_KEY):
             return templates.TemplateResponse("result.html", {
                 "request": request,
                 "error": "Доступ заборонено! Невірний пароль для розділу заборгованості."
@@ -117,7 +122,6 @@ async def handle_upload(
             output_filename = secure_filename
             shutil.copy(input_path, os.path.join(DOWNLOAD_DIR, output_filename))
 
-        # --- НОВЕ: Заводимо таймери на згенеровані файли ---
         if output_filename:
             report_path = os.path.join(DOWNLOAD_DIR, output_filename)
             background_tasks.add_task(delete_after_delay, report_path, 1800)
@@ -126,7 +130,6 @@ async def handle_upload(
             for f in files_list:
                 report_path = os.path.join(DOWNLOAD_DIR, f["filename"])
                 background_tasks.add_task(delete_after_delay, report_path, 1800)
-        # ---------------------------------------------------
 
         return templates.TemplateResponse("result.html", {
             "request": request,
