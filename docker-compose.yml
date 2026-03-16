@@ -4,12 +4,23 @@ services:
   energy_analytics_diggy:
     build: .
     container_name: energy_web_app_diggy
-    ports:
-      - "8002:8002"
+    # ПОРТИ ПРИБРАЛИ! Тепер хакери не зможуть постукати на IP:8002
     environment:
       - SECRET_ACCESS_KEY=${SECRET_ACCESS_KEY}
+      - TG_BOT_TOKEN=${TG_BOT_TOKEN}
+      - TG_CHAT_ID=${TG_CHAT_ID}
     volumes:
       - .:/code
       - ./uploads:/code/uploads
       - ./downloads:/code/downloads
     restart: always
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare_tunnel
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    restart: always
+    depends_on:
+      - energy_analytics_diggy

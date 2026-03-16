@@ -1,80 +1,130 @@
-from fastapi import FastAPI, Request, File, UploadFile, BackgroundTasks, Form, HTTPException, status
-from fastapi.responses import HTMLResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 import os
+import magic
 import time
 import shutil
 import uuid
 import asyncio
-import secrets  # <--- НОВОЕ: Библиотека для криптографической защиты пароля
+import secrets
+import sqlite3
+from datetime import datetime
+from fastapi import FastAPI, Request, File, UploadFile, BackgroundTasks, Form, HTTPException
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
-# Імпорт твоїх скриптів
+from app.scripts.tg_bot import send_telegram_alert
 from app.scripts.debts import run_debts_analysis
 from app.scripts.routes import run_routes_generation
 from app.scripts.calls import run_calls_analysis
 
-app = FastAPI(title="Energy Analytics")
+app = FastAPI(title="Energy Analytics API")
 
-# ПАРОЛЬ ЖИВЕ ТІЛЬКИ ТУТ
-SECRET_ACCESS_KEY = os.getenv("SECRET_ACCESS_KEY", "default_secure_password")
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
+# Security configuration
+SECRET_ACCESS_KEY = os.getenv("SECRET_ACCESS_KEY", "change_me_in_production")
 UPLOAD_DIR = "uploads"
 DOWNLOAD_DIR = "downloads"
+DB_FILE = "security_logs.db"
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# --- БЛОК БЕЗПЕКИ ТА ЗНИЩЕННЯ ДАНИХ ---
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
-def remove_single_file(path: str):
+# --- Database Setup ---
+
+def init_db():
+    """Initialize SQLite database for SOC logging."""
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT,
+                event TEXT,
+                ip TEXT,
+                country TEXT,
+                details TEXT
+            )
+        ''')
+init_db()
+
+# --- Utility Functions ---
+
+def log_to_db(event: str, ip: str, country: str, details: str = ""):
+    """Write security events to SQLite database."""
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            conn.execute(
+                "INSERT INTO logs (timestamp, event, ip, country, details) VALUES (?, ?, ?, ?, ?)",
+                (timestamp, event, ip, country, details)
+            )
+    except Exception as e:
+        print(f"DB Write Error: {e}")
+
+def get_client_info(request: Request):
+    """Extract real client IP and country via Cloudflare headers."""
+    ip = request.headers.get("CF-Connecting-IP") or request.client.host
+    country = request.headers.get("CF-IPCountry") or "Unknown"
+    return ip, country
+
+def remove_file(path: str):
+    """Safely remove a file from the filesystem."""
     if os.path.exists(path):
         try:
             os.remove(path)
         except Exception as e:
-            print(f"Не зміг видалити файл {path}: {str(e)}")
+            print(f"Cleanup error: {path} - {e}")
 
-async def delete_after_delay(file_path: str, delay_seconds: int = 1800):
-    await asyncio.sleep(delay_seconds)
-    remove_single_file(file_path)
+async def auto_delete_task(path: str, delay: int = 1800):
+    """Background task to delete files after a specific retention period."""
+    await asyncio.sleep(delay)
+    remove_file(path)
 
-def cleanup_old_files():
-    current_time = time.time()
+def maintenance_cleanup():
+    """Clear temporary files older than 30 minutes."""
+    now = time.time()
     for folder in [UPLOAD_DIR, DOWNLOAD_DIR]:
-        if os.path.exists(folder):
-            for filename in os.listdir(folder):
-                file_path = os.path.join(folder, filename)
-                if os.path.getmtime(file_path) < current_time - 1800:
-                    if os.path.isfile(file_path):
-                        remove_single_file(file_path)
+        for f in os.listdir(folder):
+            p = os.path.join(folder, f)
+            if os.path.getmtime(p) < now - 1800:
+                remove_file(p)
 
-# --- РОУТИ ---
+# --- Routes ---
 
 @app.post("/verify-password")
-async def verify_password(access_password: str = Form(...)):
-    # НОВОЕ: Безопасное сравнение паролей (защита от Timing Attack)
+async def verify_password(request: Request, background_tasks: BackgroundTasks, access_password: str = Form(...)):
+    # Constant-time comparison to prevent timing attacks
     if secrets.compare_digest(access_password, SECRET_ACCESS_KEY):
-        return {"status": "success"}
-    raise HTTPException(status_code=401, detail="Wrong password")
+        return {"status": "authorized"}
+    
+    # Log brute-force attempts on the API endpoint
+    client_ip, client_country = get_client_info(request)
+    details = "ACTION: WRONG_PASSWORD_API"
+    
+    log_entry = f"EVENT: UNAUTHORIZED_ACCESS_ATTEMPT\nSRC_IP: {client_ip}\nREGION: {client_country}\n{details}"
+    
+    background_tasks.add_task(send_telegram_alert, log_entry)
+    background_tasks.add_task(log_to_db, "UNAUTHORIZED_ACCESS_ATTEMPT", client_ip, client_country, details)
+    
+    raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "title": "Аналітика Енергозбут"})
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/downloads/{filename}")
 async def secure_download(filename: str, background_tasks: BackgroundTasks):
-    # НОВОЕ: Защита от Directory Traversal (никто не выйдет за пределы папки downloads)
-    safe_filename = os.path.basename(filename)
-    file_path = os.path.join(DOWNLOAD_DIR, safe_filename)
+    # Prevent Directory Traversal attacks
+    safe_name = os.path.basename(filename)
+    path = os.path.join(DOWNLOAD_DIR, safe_name)
     
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Файл вже видалено з міркувань безпеки. Завантажте звіт наново.")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File expired or not found")
     
-    background_tasks.add_task(remove_single_file, file_path)
-    return FileResponse(path=file_path, filename=safe_filename)
+    # One-time download: trigger deletion after serving
+    background_tasks.add_task(remove_file, path)
+    return FileResponse(path=path, filename=safe_name)
 
 @app.post("/upload")
 async def handle_upload(
@@ -84,65 +134,88 @@ async def handle_upload(
     report_type: str = Form(...),
     access_password: str = Form(None)
 ):
-    background_tasks.add_task(cleanup_old_files)
+    background_tasks.add_task(maintenance_cleanup)
     
-    safe_filename = os.path.basename(file.filename)
-    unique_id = str(uuid.uuid4())[:6] 
-    secure_filename = f"{unique_id}_{safe_filename}"
-    input_path = os.path.join(UPLOAD_DIR, secure_filename)
+    # File validation logic
+    original_name = os.path.basename(file.filename)
+    uid = str(uuid.uuid4())[:8]
+    storage_name = f"{uid}_{original_name}"
+    temp_path = os.path.join(UPLOAD_DIR, storage_name)
 
-    if not safe_filename.lower().endswith(('.xlsx', '.xls', '.csv')):
+    # MIME type verification using Magic Bytes
+    header = await file.read(2048)
+    await file.seek(0)
+    detected_mime = magic.from_buffer(header, mime=True)
+    
+    allowed_mimes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'text/csv',
+        'application/csv'
+    ]
+    
+    if not original_name.lower().endswith(('.xlsx', '.xls', '.csv')) or detected_mime not in allowed_mimes:
+        client_ip, client_country = get_client_info(request)
+        details = f"FILE: {original_name} | MIME: {detected_mime}"
+        
+        log_entry = f"EVENT: UNAUTHORIZED_FILE_UPLOAD\nSRC_IP: {client_ip}\nREGION: {client_country}\n{details}"
+        
+        background_tasks.add_task(send_telegram_alert, log_entry)
+        background_tasks.add_task(log_to_db, "UNAUTHORIZED_FILE_UPLOAD", client_ip, client_country, details)
+        
         return templates.TemplateResponse("result.html", {
             "request": request,
-            "error": "Система безпеки: Дозволені лише формати Excel або CSV!"
+            "error": "SECURITY_VIOLATION: Invalid file signature. Incident logged."
         })
 
+    # Access control for restricted modules
     if report_type == "debts":
-        # НОВОЕ: Безопасное сравнение паролей (защита от Timing Attack)
-        if not secrets.compare_digest(access_password, SECRET_ACCESS_KEY):
+        if not access_password or not secrets.compare_digest(access_password, SECRET_ACCESS_KEY):
+            client_ip, client_country = get_client_info(request)
+            details = "ACTION: WRONG_PASSWORD_FORM"
+            
+            log_entry = f"EVENT: BRUTEFORCE_ATTEMPT_DEBTS\nSRC_IP: {client_ip}\nREGION: {client_country}\n{details}"
+            
+            background_tasks.add_task(send_telegram_alert, log_entry)
+            background_tasks.add_task(log_to_db, "BRUTEFORCE_ATTEMPT_DEBTS", client_ip, client_country, details)
+
             return templates.TemplateResponse("result.html", {
                 "request": request,
-                "error": "Доступ заборонено! Невірний пароль для розділу заборгованості."
+                "error": "ACCESS_DENIED: Critical module restricted. Incident logged."
             })
             
-    with open(input_path, "wb") as buffer:
+    with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     try:
-        files_list = [] 
-        output_filename = None 
+        files_list = []
+        out_name = None
 
         if report_type == "debts":
-            output_filename = run_debts_analysis(input_path, DOWNLOAD_DIR)
+            out_name = run_debts_analysis(temp_path, DOWNLOAD_DIR)
         elif report_type == "routes":
-            files_list = run_routes_generation(input_path, DOWNLOAD_DIR)
+            files_list = run_routes_generation(temp_path, DOWNLOAD_DIR)
         elif report_type == "calls":
-            output_filename = run_calls_analysis(input_path, DOWNLOAD_DIR)
-        else:
-            output_filename = secure_filename
-            shutil.copy(input_path, os.path.join(DOWNLOAD_DIR, output_filename))
+            out_name = run_calls_analysis(temp_path, DOWNLOAD_DIR)
 
-        if output_filename:
-            report_path = os.path.join(DOWNLOAD_DIR, output_filename)
-            background_tasks.add_task(delete_after_delay, report_path, 1800)
-            
-        if files_list:
-            for f in files_list:
-                report_path = os.path.join(DOWNLOAD_DIR, f["filename"])
-                background_tasks.add_task(delete_after_delay, report_path, 1800)
+        # Schedule deletion for generated assets
+        if out_name:
+            background_tasks.add_task(auto_delete_task, os.path.join(DOWNLOAD_DIR, out_name))
+        for f in files_list:
+            background_tasks.add_task(auto_delete_task, os.path.join(DOWNLOAD_DIR, f["filename"]))
 
         return templates.TemplateResponse("result.html", {
             "request": request,
-            "filename": output_filename,
+            "filename": out_name,
             "files_list": files_list,
-            "download_url": f"/downloads/{output_filename}" if output_filename else None
+            "download_url": f"/downloads/{out_name}" if out_name else None
         })
         
     except Exception as e:
-        print(f"ПОМИЛКА ОБРОБКИ: {str(e)}") 
+        print(f"Processing error: {e}")
         return templates.TemplateResponse("result.html", {
             "request": request,
-            "error": "Сталася системна помилка при обробці файлу. Перевірте структуру таблиці або зверніться до адміністратора."
+            "error": "An error occurred during report generation."
         })
     finally:
-        remove_single_file(input_path)
+        remove_file(temp_path)

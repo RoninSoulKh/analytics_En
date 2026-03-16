@@ -5,3 +5,5 @@ python-multipart
 pandas
 openpyxl
 numpy
+python-magic
+requests
