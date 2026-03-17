@@ -6,13 +6,16 @@ import uuid
 import asyncio
 import secrets
 import sqlite3
+import zipfile
+import io
+import threading
 from datetime import datetime
 from fastapi import FastAPI, Request, File, UploadFile, BackgroundTasks, Form, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.scripts.tg_bot import send_telegram_alert
+from app.scripts.tg_bot import send_telegram_alert, start_bot_polling
 from app.scripts.debts import run_debts_analysis
 from app.scripts.routes import run_routes_generation
 from app.scripts.calls import run_calls_analysis
@@ -47,6 +50,7 @@ def init_db():
             )
         ''')
 init_db()
+threading.Thread(target=start_bot_polling, daemon=True).start()
 
 # --- Utility Functions ---
 
@@ -89,6 +93,17 @@ def maintenance_cleanup():
             p = os.path.join(folder, f)
             if os.path.getmtime(p) < now - 1800:
                 remove_file(p)
+
+def is_valid_spreadsheet_archive(file_content: bytes) -> bool:
+    """Deep inspection of ZIP archives to verify spreadsheet structures."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(file_content)) as z:
+            file_list = z.namelist()
+            is_xlsx = "[Content_Types].xml" in file_list or "xl/workbook.xml" in file_list
+            is_ods = "mimetype" in file_list and "content.xml" in file_list
+            return is_xlsx or is_ods
+    except Exception:
+        return False
 
 # --- Routes ---
 
@@ -136,7 +151,6 @@ async def handle_upload(
 ):
     background_tasks.add_task(maintenance_cleanup)
     
-    # File validation logic
     original_name = os.path.basename(file.filename)
     uid = str(uuid.uuid4())[:8]
     storage_name = f"{uid}_{original_name}"
@@ -151,10 +165,17 @@ async def handle_upload(
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.ms-excel',
         'text/csv',
-        'application/csv'
+        'application/csv',
+        'application/octet-stream',
+        'application/zip',
+        'application/vnd.oasis.opendocument.spreadsheet',
+        'application/pdf'
     ]
     
-    if not original_name.lower().endswith(('.xlsx', '.xls', '.csv')) or detected_mime not in allowed_mimes:
+    allowed_extensions = ('.xlsx', '.xls', '.csv', '.ods', '.pdf')
+    
+    # 1. Basic Validation
+    if not original_name.lower().endswith(allowed_extensions) or detected_mime not in allowed_mimes:
         client_ip, client_country = get_client_info(request)
         details = f"FILE: {original_name} | MIME: {detected_mime}"
         
@@ -167,6 +188,25 @@ async def handle_upload(
             "request": request,
             "error": "SECURITY_VIOLATION: Invalid file signature. Incident logged."
         })
+
+    # 2. Deep Inspection for Archives
+    if detected_mime in ['application/zip', 'application/octet-stream']:
+        full_content = await file.read()
+        await file.seek(0)
+        
+        if not is_valid_spreadsheet_archive(full_content):
+            client_ip, client_country = get_client_info(request)
+            details = f"FILE: {original_name} | REASON: Malformed archive payload"
+            
+            log_entry = f"EVENT: MALICIOUS_PAYLOAD_BLOCKED\nSRC_IP: {client_ip}\nREGION: {client_country}\n{details}"
+            
+            background_tasks.add_task(send_telegram_alert, log_entry)
+            background_tasks.add_task(log_to_db, "MALICIOUS_PAYLOAD_BLOCKED", client_ip, client_country, details)
+            
+            return templates.TemplateResponse("result.html", {
+                "request": request,
+                "error": "SECURITY_VIOLATION: Invalid payload structure. Incident logged."
+            })
 
     # Access control for restricted modules
     if report_type == "debts":
@@ -198,7 +238,6 @@ async def handle_upload(
         elif report_type == "calls":
             out_name = run_calls_analysis(temp_path, DOWNLOAD_DIR)
 
-        # Schedule deletion for generated assets
         if out_name:
             background_tasks.add_task(auto_delete_task, os.path.join(DOWNLOAD_DIR, out_name))
         for f in files_list:

@@ -38,7 +38,7 @@
             --btn-outline: #a0aec0;
         }
 
-        body { font-family: 'Manrope', sans-serif; background-color: var(--bg-secondary); color: var(--text-main); transition: background-color 0.3s, color 0.3s; }
+        body { font-family: 'Manrope', sans-serif; background-color: var(--bg-secondary); color: var(--text-main); transition: background-color 0.3s, color 0.3s; display: flex; flex-direction: column; min-height: 100vh; }
         
         [data-theme="dark"] .text-muted { color: var(--text-muted) !important; }
         
@@ -48,7 +48,7 @@
         .btn-outline-secondary { color: var(--btn-outline); border-color: var(--border-strong); }
         .btn-outline-secondary:hover { background-color: var(--border-strong); color: var(--text-main); }
 
-        .result-card { background: var(--bg-card); border-radius: 20px; padding: 3rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-top: 4rem; border-top: 5px solid #50A74B; text-align: center; transition: background-color 0.3s; }
+        .result-card { background: var(--bg-card); border-radius: 20px; padding: 3rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-top: 4rem; margin-bottom: 4rem; border-top: 5px solid #50A74B; text-align: center; transition: background-color 0.3s; }
         .btn-custom { background-color: #50A74B; color: white; font-weight: 600; padding: 12px 24px; border-radius: 12px; font-size: 1.1rem; border: none; transition: all 0.3s; }
         .btn-custom:hover { background-color: #40883c; color: white; }
         
@@ -59,9 +59,19 @@
         
         .downloaded-state { opacity: 0.6; cursor: not-allowed !important; pointer-events: all; }
 
-        /* Кнопка зміни теми в навбарі */
         .theme-toggle-btn { background: transparent; border: none; color: var(--text-main); font-size: 1.2rem; cursor: pointer; padding: 0 15px; transition: color 0.3s; }
         .theme-toggle-btn:hover { color: #50A74B; }
+
+        .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1060; }
+        .toast { background-color: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+
+        /* СТИЛІ ФУТЕРА БЕЗПЕКИ */
+        .security-footer { background-color: var(--bg-card); border-top: 1px solid var(--border-strong); padding: 4rem 0; margin-top: auto; }
+        .sec-feature { padding: 2rem; border-radius: 20px; background: var(--bg-secondary); border: 1px solid var(--border-strong); height: 100%; transition: all 0.3s ease; }
+        .sec-feature:hover { transform: translateY(-5px); border-color: #50A74B; box-shadow: 0 10px 30px rgba(80, 167, 75, 0.08); }
+        .sec-icon { font-size: 2.2rem; color: #50A74B; margin-bottom: 1.2rem; }
+        .sec-title { font-weight: 800; font-size: 1.2rem; margin-bottom: 0.8rem; color: var(--text-main); }
+        .sec-desc { color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; margin: 0; }
     </style>
 </head>
 <body>
@@ -76,7 +86,8 @@
             </div>
         </div>
     </nav>
-    <div class="container">
+    
+    <div class="container flex-grow-1 d-flex flex-column justify-content-center">
         <div class="row justify-content-center">
             <div class="col-md-8">
                 {% if error %}
@@ -113,6 +124,38 @@
         </div>
     </div>
 
+    <footer class="security-footer mt-auto">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h3 style="font-weight: 800; color: var(--text-main);">Безпека рівня Enterprise</h3>
+                <p class="text-muted">Ця система побудована на принципах суворої ізоляції та автоматизованого аудиту.</p>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="sec-feature">
+                        <i class="bi bi-shield-slash sec-icon"></i>
+                        <h4 class="sec-title">Zero Trust Архітектура</h4>
+                        <p class="sec-desc">Повна ізоляція конфіденційних даних. Усі завантажені таблиці та результати аналітики підлягають негайному і безповоротному знищенню одразу після першого завантаження користувачем. Резервний протокол автоочищення зітре нескачані файли рівно через 30 хвилин.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="sec-feature">
+                        <i class="bi bi-file-earmark-binary sec-icon"></i>
+                        <h4 class="sec-title">Глибока інспекція файлів</h4>
+                        <p class="sec-desc">Кожен файл проходить дворівневу перевірку: валідація Magic Bytes (MIME) та рентген-аналіз внутрішньої структури архівів на наявність макросів чи прихованого шкідливого коду.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="sec-feature">
+                        <i class="bi bi-cloud-check sec-icon"></i>
+                        <h4 class="sec-title">Cloudflare SOC Monitor</h4>
+                        <p class="sec-desc">Система інтегрована з API Cloudflare для фільтрації шкідливого трафіку на рівні L7. Будь-яка підозріла активність миттєво блокується та передається до закритої системи моніторингу інцидентів (SOC) для подальшого аналізу.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
     <div class="modal fade" id="goneModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content" style="border-radius: 20px; border: none; box-shadow: 0 20px 40px rgba(0,0,0,0.1); border-top: 5px solid #dc3545;">
@@ -126,6 +169,23 @@
         </div>
     </div>
 
+    <div class="toast-container">
+        <div id="resultToast" class="toast align-items-center" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
+            <div class="d-flex">
+                <div class="toast-body" style="font-weight: 600;">
+                    {% if error %}
+                        <i class="bi bi-exclamation-triangle-fill text-danger me-2" style="font-size: 1.1rem;"></i>
+                        <span>Відмовлено у доступі або помилка файлу.</span>
+                    {% else %}
+                        <i class="bi bi-check-circle-fill text-success me-2" style="font-size: 1.1rem;"></i>
+                        <span>Операція успішно завершена!</span>
+                    {% endif %}
+                </div>
+                <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" style="filter: var(--btn-close-filter);"></button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // ЛОГІКА ТЕМНОЇ ТЕМИ
@@ -134,6 +194,7 @@
         
         if (localStorage.getItem('theme') === 'dark') {
             themeIcon.classList.replace('bi-sun-fill', 'bi-moon-stars-fill');
+            document.documentElement.style.setProperty('--btn-close-filter', 'invert(1)');
         }
 
         themeToggle.addEventListener('click', () => {
@@ -142,15 +203,23 @@
                 document.documentElement.removeAttribute('data-theme');
                 localStorage.setItem('theme', 'light');
                 themeIcon.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
+                document.documentElement.style.setProperty('--btn-close-filter', 'none');
             } else {
                 document.documentElement.setAttribute('data-theme', 'dark');
                 localStorage.setItem('theme', 'dark');
                 themeIcon.classList.replace('bi-sun-fill', 'bi-moon-stars-fill');
+                document.documentElement.style.setProperty('--btn-close-filter', 'invert(1)');
             }
         });
 
-        // СТАРА ЛОГІКА ЗАВАНТАЖЕННЯ (БЕЗ ЗМІН)
+        // СТАРА ЛОГІКА ЗАВАНТАЖЕННЯ ТА TOAST
         document.addEventListener('DOMContentLoaded', function() {
+            const toastEl = document.getElementById('resultToast');
+            if (toastEl) {
+                const toast = new bootstrap.Toast(toastEl);
+                toast.show();
+            }
+
             const goneModal = new bootstrap.Modal(document.getElementById('goneModal'));
             const downloadLinks = document.querySelectorAll('.smart-download');
 

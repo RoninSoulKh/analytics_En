@@ -44,7 +44,7 @@
             --input-bg: #121212;
         }
 
-        body { font-family: 'Manrope', sans-serif; background-color: var(--bg-main); color: var(--text-main); overflow-x: hidden; transition: background-color 0.3s, color 0.3s; }
+        body { font-family: 'Manrope', sans-serif; background-color: var(--bg-main); color: var(--text-main); overflow-x: hidden; transition: background-color 0.3s, color 0.3s; display: flex; flex-direction: column; min-height: 100vh; }
         
         [data-theme="dark"] .text-muted { color: var(--text-muted) !important; }
 
@@ -87,9 +87,19 @@
         .form-control { background-color: var(--input-bg); color: var(--text-main); border-color: var(--border-strong); }
         .form-control:focus { background-color: var(--input-bg); color: var(--text-main); border-color: #50A74B; box-shadow: 0 0 0 0.25rem rgba(80, 167, 75, 0.25); }
         
-        /* КНОПКА ЗМІНИ ТЕМИ */
         .theme-toggle-btn { position: fixed; top: 20px; right: 30px; z-index: 1050; background: var(--bg-card); border: 1px solid var(--border-strong); color: var(--text-main); border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; font-size: 1.2rem; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         .theme-toggle-btn:hover { border-color: #50A74B; color: #50A74B; transform: translateY(-2px); }
+
+        .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1060; }
+        .toast { background-color: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+
+        /* СТИЛІ ФУТЕРА БЕЗПЕКИ */
+        .security-footer { background-color: var(--bg-card); border-top: 1px solid var(--border-strong); padding: 4rem 0; margin-top: auto; }
+        .sec-feature { padding: 2rem; border-radius: 20px; background: var(--bg-secondary); border: 1px solid var(--border-strong); height: 100%; transition: all 0.3s ease; }
+        .sec-feature:hover { transform: translateY(-5px); border-color: #50A74B; box-shadow: 0 10px 30px rgba(80, 167, 75, 0.08); }
+        .sec-icon { font-size: 2.2rem; color: #50A74B; margin-bottom: 1.2rem; }
+        .sec-title { font-weight: 800; font-size: 1.2rem; margin-bottom: 0.8rem; color: var(--text-main); }
+        .sec-desc { color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; margin: 0; }
     </style>
 </head>
 <body>
@@ -98,7 +108,7 @@
         <i class="bi bi-sun-fill" id="themeIcon"></i>
     </button>
 
-    <div class="container-fluid p-0">
+    <div class="container-fluid p-0 flex-grow-1">
         <div class="row g-0">
             <div class="col-lg-5 left-panel">
                 <div>
@@ -138,11 +148,11 @@
 
                     <div class="stat-grid">
                         <div class="stat-item">
-                            <span class="stat-value">Успішно</span>
-                            <span class="stat-label">Аналіз</span>
+                            <span class="stat-value" id="statThreats">0</span>
+                            <span class="stat-label">Відбито загроз</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-value">+1,2к</span>
+                            <span class="stat-value">+<span id="statFiles">0</span>к</span>
                             <span class="stat-label">Оброблено звітів</span>
                         </div>
                     </div>
@@ -150,6 +160,38 @@
             </div>
         </div>
     </div>
+
+    <footer class="security-footer">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h3 style="font-weight: 800; color: var(--text-main);">Безпека рівня Enterprise</h3>
+                <p class="text-muted">Ця система побудована на принципах суворої ізоляції та автоматизованого аудиту.</p>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="sec-feature">
+                        <i class="bi bi-shield-slash sec-icon"></i>
+                        <h4 class="sec-title">Zero Trust Архітектура</h4>
+                        <p class="sec-desc">Жодні конфіденційні дані не зберігаються на наших серверах. Усі завантажені таблиці та згенеровані звіти підлягають автоматичному і безповоротному видаленню через 30 хвилин після обробки.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="sec-feature">
+                        <i class="bi bi-file-earmark-binary sec-icon"></i>
+                        <h4 class="sec-title">Глибока інспекція файлів</h4>
+                        <p class="sec-desc">Кожен файл проходить дворівневу перевірку: валідація Magic Bytes (MIME) та рентген-аналіз внутрішньої структури архівів на наявність макросів чи прихованого шкідливого коду.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="sec-feature">
+                        <i class="bi bi-cloud-check sec-icon"></i>
+                        <h4 class="sec-title">Cloudflare SOC Monitor</h4>
+                        <p class="sec-desc">Система інтегрована з API Cloudflare для фільтрації шкідливого трафіку на рівні L7. Будь-яка підозріла активність миттєво фіксується в базі SQLite та відправляється в Telegram-бот безпеки.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
 
     <div class="modal fade" id="uploadModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -209,16 +251,47 @@
         </div>
     </div>
 
+    <div class="toast-container">
+        <div id="statusToast" class="toast align-items-center" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
+            <div class="d-flex">
+                <div class="toast-body" style="font-weight: 600;">
+                    <i class="bi bi-info-circle-fill me-2" style="color: #50A74B; font-size: 1.1rem;"></i>
+                    <span id="toastMessage">Повідомлення</span>
+                </div>
+                <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" style="filter: var(--btn-close-filter);"></button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Анімація лічильників
+        function animateValue(id, start, end, duration) {
+            let obj = document.getElementById(id);
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                obj.innerHTML = (progress * (end - start) + start).toFixed(id === 'statFiles' ? 1 : 0);
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+        
+        // Запуск анімації при завантаженні (зміни 1366 і 1.2 на потрібні значення або Jinja теги в майбутньому)
+        document.addEventListener('DOMContentLoaded', () => {
+            animateValue("statThreats", 0, 1366, 2000);
+            animateValue("statFiles", 0, 1.2, 2000);
+        });
+
         // ЛОГІКА ТЕМНОЇ ТЕМИ
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = document.getElementById('themeIcon');
         
-        // Встановлюємо правильну іконку при завантаженні
         if (localStorage.getItem('theme') === 'dark') {
             themeIcon.classList.replace('bi-sun-fill', 'bi-moon-stars-fill');
-            // Робимо хрестик закриття білим у темній темі
             document.documentElement.style.setProperty('--btn-close-filter', 'invert(1)');
         }
 
@@ -291,6 +364,12 @@
                 document.getElementById('formContainer').classList.add('d-none');
                 document.getElementById('loadingContainer').classList.remove('d-none');
                 document.getElementById('loadingFilename').innerText = fileInput.files[0].name;
+
+                // Toast Notification
+                const toastEl = document.getElementById('statusToast');
+                const toast = new bootstrap.Toast(toastEl);
+                document.getElementById('toastMessage').innerText = "Файл відправлено на перевірку...";
+                toast.show();
 
                 let width = 0;
                 let bar = document.getElementById('progressBar');

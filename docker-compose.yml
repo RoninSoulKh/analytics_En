@@ -9,6 +9,8 @@ services:
       - SECRET_ACCESS_KEY=${SECRET_ACCESS_KEY}
       - TG_BOT_TOKEN=${TG_BOT_TOKEN}
       - TG_CHAT_ID=${TG_CHAT_ID}
+      - CF_ZONE_ID=${CF_ZONE_ID}
+      - CF_API_TOKEN=${CF_API_TOKEN}
     volumes:
       - .:/code
       - ./uploads:/code/uploads

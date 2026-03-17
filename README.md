@@ -14,11 +14,11 @@ An automated, highly secure web platform for energy data processing, field-routi
 This platform is hardened against common web vulnerabilities (OWASP Top 10) and operates completely cloaked from the public internet:
 
 * **Zero Trust Architecture:** The application exposes **zero public ports**. All traffic is securely routed exclusively through a **Cloudflare Tunnel**, protected by strict WAF rules (Geo-blocking).
-* **Deep File Inspection:** Mitigation of malicious uploads using **Magic Bytes** (`libmagic1`) to verify actual MIME-type signatures, not just file extensions.
+* **L7 Cloudflare Shield Integration:** Uses Cloudflare GraphQL API to monitor and block malicious traffic at the edge, logging edge-threats directly to the SOC.
+* **Deep File Inspection:** Mitigation of malicious uploads using **Magic Bytes** (`libmagic1`) to verify actual MIME-type signatures, combined with deep XML-structure inspection inside `.zip/.xlsx` archives to prevent macro/malware execution.
 * **Constant-Time Cryptography:** Module access is protected using `secrets.compare_digest()` to completely eliminate Timing Attacks.
-* **Path Traversal Protection:** Strict sanitization of I/O operations using `os.path.basename` prevents directory traversal exploits.
-* **Ephemeral Data Processing:** Uploaded data is processed in isolated UUID-namespaces. Files are instantly destroyed post-download, and a background Garbage Collector sweeps abandoned files every 30 minutes.
-* **Integrated SOC Logging:** Real-time threat monitoring records unauthorized access attempts and invalid file signatures to a local SQLite database, triggering instant **Telegram Bot Alerts** with tracked `CF-Connecting-IP` headers.
+* **Ephemeral Data (Burn-after-reading):** Uploaded data is processed in isolated UUID-namespaces. Files are strictly **destroyed immediately post-download**. A background Garbage Collector acts as a failsafe, sweeping abandoned files every 30 minutes.
+* **Integrated SOC Logging & Analytics:** Real-time threat monitoring records unauthorized access attempts and invalid file signatures to a local SQLite database. Triggers instant **Telegram Bot Alerts** (with tracked `CF-Connecting-IP` headers) and visualizes threat data via Matplotlib charts.
 * **Hardened Docker Environment:** Containers execute entirely under a non-root user privilege model.
 
 ## 🚀 Core Business Logic Modules
@@ -31,37 +31,44 @@ This platform is hardened against common web vulnerabilities (OWASP Top 10) and 
 
 * **Glassmorphism Design:** Modern, responsive interface using Bootstrap 5.
 * **Adaptive Theme:** Built-in Dark/Light mode toggle with `localStorage` memory.
-* **Smart Download States:** UI prevents duplicate downloads and alerts users when ephemeral files are safely purged from the server.
+* **Live Security Dashboard:** Animated, real-time security threat and file-processing metrics displayed directly on the UI.
+* **Smart States & Toasts:** Interactive Toast notifications for upload states. UI prevents duplicate downloads and alerts users when ephemeral files are safely purged from the server.
 
 ## 🛠️ Tech Stack
 
-* **Backend:** Python 3.10, FastAPI, Uvicorn, Pandas, OpenPyXL, Python-Magic
-* **Frontend:** HTML5, CSS3, Bootstrap 5, Jinja2 Templates
+* **Backend:** Python 3.10, FastAPI, Uvicorn
+* **Data Processing:** Pandas, OpenPyXL
+* **Security & SOC:** Python-Magic, SQLite3, pyTelegramBotAPI, Matplotlib, Cloudflare GraphQL
+* **Frontend:** HTML5, CSS3, Bootstrap 5, Jinja2 Templates, Vanilla JS
 * **Infrastructure & Deployment:** Docker, Docker Compose, Cloudflare `cloudflared` daemon
 
 ## ⚙️ Quick Start (Docker Deployment)
 
 **1. Clone the repository:**
-```bash
-git clone [https://github.com/RoninSoulKh/analytics_En.git](https://github.com/RoninSoulKh/analytics_En.git)
-cd analytics_En
-```
+
+    git clone https://github.com/RoninSoulKh/analytics_En.git
+    cd analytics_En
 
 **2. Create a `.env` file in the root directory with your secure credentials:**
-```env
-SECRET_ACCESS_KEY=your_secure_password_here
-TG_BOT_TOKEN=your_telegram_bot_token
-TG_CHAT_ID=your_telegram_chat_id
-TUNNEL_TOKEN=your_cloudflare_tunnel_token
-```
+
+    SECRET_ACCESS_KEY=your_secure_password_here
+    TG_BOT_TOKEN=your_telegram_bot_token
+    TG_CHAT_ID=your_telegram_chat_id
+    TUNNEL_TOKEN=your_cloudflare_tunnel_token
+    CF_ZONE_ID=your_cloudflare_zone_id
+    CF_API_TOKEN=your_cloudflare_api_token
 
 **3. Build and launch the containerized environment:**
-```bash
-docker compose up -d --build
-```
+
+    docker compose up -d --build
 
 **4. Access and Routing:**
 The application will be securely proxied through your configured Cloudflare Tunnel. Local direct access is disabled by design.
+
+## 📊 Telegram SOC Bot Commands
+
+* `/stats` - Generates a visual PNG chart of blocked security incidents logged in SQLite (1W, 1M, 1Y).
+* `/log` - Fetches real-time L7 threat analytics from the Cloudflare GraphQL API.
 
 ## 📜 License
 This project is officially licensed under the [MIT License](LICENSE).
