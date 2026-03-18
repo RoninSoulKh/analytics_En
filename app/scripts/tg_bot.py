@@ -3,7 +3,7 @@ import requests
 import threading
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from app.graphs import generate_stats_chart
+from app.graphs import generate_cf_chart
 
 bot_token = os.getenv("TG_BOT_TOKEN")
 chat_id = os.getenv("TG_CHAT_ID")
@@ -19,11 +19,12 @@ def send_telegram_alert(message: str):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     
     full_text = (
-        f"<b>[SYSTEM_SECURITY_LOG]</b>\n"
+        f"<b>[СИСТЕМНЕ ПОВІДОМЛЕННЯ, СЕР]</b>\n"
         f"--------------------------------\n"
+        f"Виявлено несанкціоновану активність:\n"
         f"{message}\n"
         f"--------------------------------\n"
-        f"STATUS: ACTION_BLOCKED"
+        f"СТАТУС: Загрозу нейтралізовано."
     )
 
     payload = {
@@ -35,11 +36,11 @@ def send_telegram_alert(message: str):
     try:
         requests.post(url, json=payload, timeout=5)
     except Exception as e:
-        print(f"FAILED_TO_SEND_LOG: {str(e)}")
+        print(f"Помилка відправки протоколу: {str(e)}")
 
 def get_cloudflare_stats():
     if not cf_zone_id or not cf_api_token:
-        return "❌ Помилка: Не налаштовані CF_ZONE_ID або CF_API_TOKEN"
+        return "⚠️ Сер, модулі Cloudflare не підключені. Перевірте змінні середовища."
     
     url = "https://api.cloudflare.com/client/v4/graphql"
     headers = {
@@ -47,11 +48,9 @@ def get_cloudflare_stats():
         "Content-Type": "application/json"
     }
     
-    # Вираховуємо дату 7 днів тому
     from datetime import datetime, timedelta
     since_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
     
-    # Формуємо правильний GraphQL запит
     query = f"""
     query {{
       viewer {{
@@ -68,29 +67,27 @@ def get_cloudflare_stats():
     """
     
     try:
-        # GraphQL завжди використовує POST запити
         r = requests.post(url, headers=headers, json={"query": query}, timeout=10)
         data = r.json()
         
-        # Перевірка на помилки в новому форматі
         if "errors" in data and data["errors"]:
-            err_msg = data["errors"][0].get("message", "Невідома помилка GraphQL")
-            return f"❌ Відмова Cloudflare: {err_msg}"
+            return "⚠️ Сер, зовнішній щит не відповідає на запит."
             
         zones = data.get("data", {}).get("viewer", {}).get("zones", [])
         if zones:
             groups = zones[0].get("httpRequests1dGroups", [])
-            
-            # Сумуємо всі дні
             total_requests = sum(g.get("sum", {}).get("requests", 0) for g in groups)
             total_threats = sum(g.get("sum", {}).get("threats", 0) for g in groups)
             
-            return f"☁️ <b>CLOUDFLARE SHIELD (Last 7 days)</b>\n🛡 Заблоковано загроз: <b>{total_threats}</b>\n🌐 Загалом запитів: <b>{total_requests}</b>"
+            return (f"🛡 <b>Звіт зовнішнього щита (останні 7 днів), сер:</b>\n\n"
+                    f"🛑 Відбито атак: <b>{total_threats}</b>\n"
+                    f"🌐 Загальний трафік: <b>{total_requests}</b>\n\n"
+                    f"Системи працюють у штатному режимі.")
         else:
-            return "❌ Немає даних від Cloudflare (перевірте Zone ID)"
+            return "⚠️ Сер, дані відсутні. Можливо, варто перевірити ідентифікатор зони."
             
     except Exception as e:
-        return f"❌ Збій коду: {e}"
+        return f"⚠️ Виникла системна помилка, сер: {e}"
 
 if bot:
     @bot.message_handler(commands=['stats'])
@@ -100,19 +97,25 @@ if bot:
         
         markup = InlineKeyboardMarkup()
         markup.row(
-            InlineKeyboardButton("1 Week", callback_data="stats_7"),
-            InlineKeyboardButton("1 Month", callback_data="stats_30"),
-            InlineKeyboardButton("1 Year", callback_data="stats_365")
+            InlineKeyboardButton("1 Тиждень", callback_data="stats_week"),
+            InlineKeyboardButton("1 Місяць", callback_data="stats_month"),
+            InlineKeyboardButton("1 Рік", callback_data="stats_year")
         )
-        bot.reply_to(message, "📊 <b>Оберіть період для аналітики інцидентів:</b>", reply_markup=markup, parse_mode="HTML")
+        bot.reply_to(message, "Запускаю протокол аналітики. <b>Який період вас цікавить, сер?</b>", reply_markup=markup, parse_mode="HTML")
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith('stats_'))
     def callback_stats(call):
-        days = int(call.data.split('_')[1])
-        bot.answer_callback_query(call.id, "Генерація графіка...")
+        period = call.data.split('_')[1]
+        bot.answer_callback_query(call.id, "Обробляю дані масиву, сер...")
         
-        photo = generate_stats_chart(days)
-        caption = f"🛡 <b>SECURITY REPORT ({days} DAYS)</b>\nСтатистика відбитих атак з SQLite."
+        photo = generate_cf_chart(period, cf_zone_id, cf_api_token)
+        
+        if not photo:
+            bot.send_message(call.message.chat.id, "⚠️ Сер, не вдалося отримати телеметрію із зовнішніх сенсоров Cloudflare.")
+            return
+
+        period_names = {"week": "тиждень", "month": "місяць", "year": "рік"}
+        caption = f"🛡 <b>Ось ваша візуалізація атак за {period_names.get(period, 'період')}, сер.</b>\nУсі системи захисту активовані."
         
         bot.send_photo(call.message.chat.id, photo, caption=caption, parse_mode="HTML")
 
@@ -125,5 +128,5 @@ if bot:
 
 def start_bot_polling():
     if bot:
-        print("Starting Telegram SOC Bot listener...")
+        print("J.A.R.V.I.S. SOC protocol initialized...")
         bot.infinity_polling()
