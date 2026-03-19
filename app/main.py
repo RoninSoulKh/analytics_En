@@ -19,6 +19,7 @@ from app.scripts.tg_bot import send_telegram_alert, start_bot_polling
 from app.scripts.debts import run_debts_analysis
 from app.scripts.routes import run_routes_generation
 from app.scripts.calls import run_calls_analysis
+from app.scripts.warnings import run_warnings_analysis
 
 app = FastAPI(title="Energy Analytics API")
 
@@ -237,6 +238,8 @@ async def handle_upload(
             files_list = run_routes_generation(temp_path, DOWNLOAD_DIR)
         elif report_type == "calls":
             out_name = run_calls_analysis(temp_path, DOWNLOAD_DIR)
+        elif report_type == "warnings":
+            out_name = run_warnings_analysis(temp_path, DOWNLOAD_DIR)
 
         if out_name:
             background_tasks.add_task(auto_delete_task, os.path.join(DOWNLOAD_DIR, out_name))

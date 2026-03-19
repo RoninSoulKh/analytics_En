@@ -129,6 +129,10 @@
                             <i class="bi bi-telephone-fill"></i>
                             <span>Статистика обдзвону абонентів</span>
                         </div>
+                        <div class="menu-btn" onclick="openUpload('warnings')">
+                            <i class="bi bi-envelope-paper-fill"></i>
+                            <span>Статистика рознесення вимог-повідомлень</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -314,7 +318,9 @@
         const modalData = {
             'debts': { title: 'Аналіз заборгованості', desc: 'Завантажте вивантаження по боргах (Excel або CSV).' },
             'routes': { title: 'Маршрутні відомості', desc: 'Завантажте файл "Попередження про відключення".' },
-            'calls': { title: 'Статистика обдзвону', desc: 'Завантажте сирий звіт по дзвінках.' }
+            'calls': { title: 'Статистика обдзвону', desc: 'Завантажте сирий звіт по дзвінках.' },
+            // НОВИЙ ОБ'ЄКТ ДОДАНКО ТУТ
+            'warnings': { title: 'Статистика вимог-повідомлень', desc: 'Завантажте звіт про результати рознесення попереджень.' }
         };
 
         const uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
