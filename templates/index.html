@@ -53,14 +53,23 @@
         h1 { font-size: 3.5rem; font-weight: 800; line-height: 1.2; margin-bottom: 1.5rem; letter-spacing: -1px; }
         .subtitle { font-size: 1.1rem; color: var(--text-muted); margin-bottom: 3rem; max-width: 90%; line-height: 1.6; }
         
-        .menu-btn { position: relative; display: flex; align-items: center; padding: 1.2rem 1.5rem; margin-bottom: 1rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); text-decoration: none; color: var(--text-main); font-weight: 600; font-size: 1.1rem; overflow: hidden; z-index: 1; transition: all 0.3s ease; cursor: pointer; }
-        .menu-btn i { font-size: 1.6rem; color: #50A74B; margin-right: 20px; z-index: 2; transition: all 0.3s ease; }
+        .menu-btn { position: relative; display: flex; align-items: center; padding: 1rem 1.2rem; margin-bottom: 0.8rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); text-decoration: none; color: var(--text-main); font-weight: 600; font-size: 1.05rem; overflow: hidden; z-index: 1; transition: all 0.3s ease; cursor: pointer; }
+        .menu-btn i { font-size: 1.4rem; color: #50A74B; margin-right: 20px; z-index: 2; transition: all 0.3s ease; }
         .menu-btn span { z-index: 2; transition: all 0.3s ease; }
         .menu-btn::before { content: ''; position: absolute; top: 0; left: 0; width: 0; height: 100%; background: #50A74B; z-index: -1; transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
         
         .menu-btn:hover { border-color: #50A74B; transform: translateY(-3px); box-shadow: 0 10px 30px rgba(80, 167, 75, 0.2); }
         .menu-btn:hover::before { width: 100%; }
         .menu-btn:hover span, .menu-btn:hover i { color: #ffffff !important; }
+
+        /* ЕСТЕТИЧНИЙ КВАДРАТ */
+        .pdf-btn-square { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); color: #dc3545; font-weight: 800; font-size: 0.9rem; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s ease; width: 75px; height: 75px; flex-shrink: 0; cursor: pointer; position: relative; z-index: 1; overflow: hidden; margin-left: 5px; }
+        .pdf-btn-square i { font-size: 1.8rem; margin-bottom: 2px; z-index: 2; transition: all 0.3s ease; }
+        .pdf-btn-square span { z-index: 2; transition: all 0.3s ease; }
+        .pdf-btn-square::before { content: ''; position: absolute; top: 0; left: 0; width: 0; height: 100%; background: #dc3545; z-index: -1; transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
+        .pdf-btn-square:hover { border-color: #dc3545; transform: translateY(-3px); box-shadow: 0 10px 30px rgba(220, 53, 69, 0.2); }
+        .pdf-btn-square:hover::before { width: 100%; }
+        .pdf-btn-square:hover span, .pdf-btn-square:hover i { color: #ffffff !important; }
 
         .right-panel { background-color: var(--bg-secondary); position: relative; background-image: radial-gradient(var(--border-strong) 1px, transparent 1px); background-size: 20px 20px; display: flex; align-items: center; justify-content: center; transition: background-color 0.3s; }
         .blur-blob { position: absolute; width: 500px; height: 500px; background: linear-gradient(135deg, rgba(80, 167, 75, 0.4), rgba(46, 204, 113, 0.2)); border-radius: 50%; filter: blur(80px); z-index: 0; }
@@ -116,24 +125,34 @@
                     <h1>Розумна<br>аналітика даних.</h1>
                     <p class="subtitle">Оптимізуйте роботу з абонентами, формуйте маршрути та аналізуйте дебіторську заборгованість в один клік.</p>
                     
-                    <div class="d-flex flex-column pe-lg-5">
-                        <div class="menu-btn" onclick="openUpload('debts')">
-                            <i class="bi bi-shield-lock-fill"></i>
-                            <span>Аналіз дебіторської заборгованості</span>
+                    <div class="d-flex pe-lg-5 gap-3 align-items-start">
+                        
+                        <div class="d-flex flex-column flex-grow-1">
+                            <div class="menu-btn" onclick="openUpload('debts')">
+                                <i class="bi bi-shield-lock-fill"></i>
+                                <span>Аналіз дебіторської заборгованості</span>
+                            </div>
+                            <div class="menu-btn" onclick="openUpload('routes')">
+                                <i class="bi bi-map-fill"></i>
+                                <span>Формування маршрутних відомостей</span>
+                            </div>
+                            <div class="menu-btn" onclick="openUpload('calls')">
+                                <i class="bi bi-telephone-fill"></i>
+                                <span>Статистика обдзвону абонентів</span>
+                            </div>
+                            <div class="menu-btn" onclick="openUpload('warnings')" style="margin-bottom: 0;">
+                                <i class="bi bi-envelope-paper-fill"></i>
+                                <span>Статистика рознесення вимог-повідомлень</span>
+                            </div>
                         </div>
-                        <div class="menu-btn" onclick="openUpload('routes')">
-                            <i class="bi bi-map-fill"></i>
-                            <span>Формування маршрутних відомостей</span>
-                        </div>
-                        <div class="menu-btn" onclick="openUpload('calls')">
-                            <i class="bi bi-telephone-fill"></i>
-                            <span>Статистика обдзвону абонентів</span>
-                        </div>
-                        <div class="menu-btn" onclick="openUpload('warnings')">
-                            <i class="bi bi-envelope-paper-fill"></i>
-                            <span>Статистика рознесення вимог-повідомлень</span>
-                        </div>
+
+                        <a href="/pdf" class="pdf-btn-square">
+                            <i class="bi bi-file-earmark-pdf-fill"></i>
+                            <span>PDF</span>
+                        </a>
+
                     </div>
+
                 </div>
             </div>
 
@@ -284,7 +303,7 @@
             window.requestAnimationFrame(step);
         }
         
-        // Запуск анімації при завантаженні (зміни 1366 і 1.2 на потрібні значення або Jinja теги в майбутньому)
+        // Запуск анімації при завантаженні
         document.addEventListener('DOMContentLoaded', () => {
             animateValue("statThreats", 0, 1366, 2000);
             animateValue("statFiles", 0, 1.2, 2000);
@@ -319,7 +338,6 @@
             'debts': { title: 'Аналіз заборгованості', desc: 'Завантажте вивантаження по боргах (Excel або CSV).' },
             'routes': { title: 'Маршрутні відомості', desc: 'Завантажте файл "Попередження про відключення".' },
             'calls': { title: 'Статистика обдзвону', desc: 'Завантажте сирий звіт по дзвінках.' },
-            // НОВИЙ ОБ'ЄКТ ДОДАНКО ТУТ
             'warnings': { title: 'Статистика вимог-повідомлень', desc: 'Завантажте звіт про результати рознесення попереджень.' }
         };
 
@@ -371,7 +389,6 @@
                 document.getElementById('loadingContainer').classList.remove('d-none');
                 document.getElementById('loadingFilename').innerText = fileInput.files[0].name;
 
-                // Toast Notification
                 const toastEl = document.getElementById('statusToast');
                 const toast = new bootstrap.Toast(toastEl);
                 document.getElementById('toastMessage').innerText = "Файл відправлено на перевірку...";

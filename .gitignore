@@ -11,4 +11,7 @@ env/
 *.log
 .vscode/
 .idea/
-*.db
+*.dbtemp/
+uploads/
+downloads/
+security_logs.db

@@ -9,3 +9,4 @@ python-magic
 requests
 pyTelegramBotAPI
 matplotlib
+PyMuPDF==1.23.21

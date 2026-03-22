@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Analytics - PDF Tools</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    
+    <script>
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+    </script>
+
+    <style>
+        :root { --bg-main: #ffffff; --bg-secondary: #f8fafc; --bg-card: #ffffff; --text-main: #1a1a1a; --text-muted: #6c757d; --border-color: #f0f0f0; --border-strong: #e2e8f0; }
+        [data-theme="dark"] { --bg-main: #121212; --bg-secondary: #1a1a1a; --bg-card: #1e1e1e; --text-main: #f8fafc; --text-muted: #a0aec0; --border-color: #333333; --border-strong: #444444; }
+
+        body { font-family: 'Manrope', sans-serif; background-color: var(--bg-main); color: var(--text-main); min-height: 100vh; padding-bottom: 50px; transition: all 0.3s;}
+        [data-theme="dark"] .text-muted { color: var(--text-muted) !important; }
+
+        .theme-toggle-btn { position: fixed; top: 20px; right: 30px; z-index: 1050; background: var(--bg-card); border: 1px solid var(--border-strong); color: var(--text-main); border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; }
+        .back-btn { position: fixed; top: 20px; left: 30px; z-index: 1050; background: var(--bg-card); border: 1px solid var(--border-strong); color: var(--text-main); border-radius: 12px; height: 45px; padding: 0 15px; display: flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 600; transition: all 0.3s;}
+        .back-btn:hover, .theme-toggle-btn:hover { border-color: #dc3545; color: #dc3545; }
+
+        .header-section { text-align: center; padding: 4rem 0 2rem 0; }
+        h1 { font-size: 3rem; font-weight: 800; letter-spacing: -1px; }
+
+        .nav-pills { justify-content: center; margin-bottom: 3rem; gap: 10px;}
+        .nav-pills .nav-link { color: var(--text-muted); font-weight: 600; border-radius: 12px; padding: 10px 20px; transition: all 0.3s; border: 1px solid transparent;}
+        .nav-pills .nav-link:hover { background: var(--bg-secondary); border-color: var(--border-strong); }
+        .nav-pills .nav-link.active { background: rgba(220, 53, 69, 0.1); color: #dc3545; border-color: rgba(220, 53, 69, 0.2); }
+        
+        .action-card { background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 20px; padding: 2rem; margin-bottom: 1.5rem; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.02);}
+        .action-card.visible { display: block; animation: slideDown 0.5s ease forwards; }
+
+        @keyframes slideDown { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .choice-btn { background: var(--bg-secondary); border: 2px solid var(--border-strong); color: var(--text-main); border-radius: 16px; padding: 1.5rem; text-align: left; font-weight: 600; font-size: 1.1rem; width: 100%; transition: all 0.3s; cursor: pointer;}
+        .choice-btn i { font-size: 2rem; margin-bottom: 10px; color: #dc3545; display: block;}
+        .choice-btn:hover { border-color: #dc3545; background: rgba(220, 53, 69, 0.05); transform: translateY(-3px);}
+        .choice-btn.selected { border-color: #dc3545; background: rgba(220, 53, 69, 0.1); }
+
+        .chips-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+        .chip { padding: 8px 20px; border-radius: 20px; border: 1px solid var(--border-strong); background: var(--bg-secondary); cursor: pointer; font-weight: 600; transition: all 0.2s;}
+        .chip.active { background: #dc3545; color: white; border-color: #dc3545; }
+        .chip-input { width: 100px; padding: 8px 15px; border-radius: 20px; border: 1px solid var(--border-strong); background: var(--bg-secondary); color: var(--text-main); outline: none;}
+        
+        .custom-file-upload { display: flex; align-items: center; justify-content: center; width: 100%; padding: 3rem 1rem; background: var(--bg-secondary); border: 2px dashed var(--border-strong); border-radius: 20px; cursor: pointer; flex-direction: column; transition: all 0.3s;}
+        .custom-file-upload:hover { border-color: #dc3545; }
+        .custom-file-upload input[type="file"] { display: none; }
+        
+        .worker-card { background: var(--bg-secondary); border: 1px solid var(--border-strong); border-radius: 16px; margin-bottom: 1rem; overflow: hidden;}
+        .worker-header { background: rgba(220, 53, 69, 0.05); padding: 15px 20px; font-weight: 800; color: #dc3545; cursor: pointer; display: flex; justify-content: space-between; align-items: center;}
+        .worker-header:hover { background: rgba(220, 53, 69, 0.1); }
+        .worker-body { padding: 20px; background: var(--bg-card); border-top: 1px solid var(--border-strong); }
+        
+        .house-chip-label { cursor: pointer; margin: 0; }
+        .house-chip-label input { display: none; } 
+        .house-text { 
+            display: inline-block; 
+            padding: 8px 16px; 
+            background: var(--bg-secondary); 
+            border: 1px solid var(--border-strong); 
+            border-radius: 10px; 
+            font-weight: 700; 
+            color: var(--text-main); 
+            transition: all 0.2s ease; 
+            user-select: none;
+            font-size: 0.95rem;
+        }
+        .house-chip-label:hover .house-text { border-color: #dc3545; background: rgba(220, 53, 69, 0.05); }
+        
+        .house-chip-label input:checked + .house-text { 
+            background: #dc3545; 
+            border-color: #dc3545; 
+            color: white; 
+            box-shadow: 0 4px 10px rgba(220, 53, 69, 0.2); 
+            transform: translateY(-2px);
+        }
+        
+        .house-chip-label input:disabled + .house-text { 
+            opacity: 0.3; 
+            text-decoration: line-through; 
+            cursor: not-allowed; 
+            background: var(--bg-secondary) !important; 
+            border-color: var(--border-strong) !important; 
+            color: var(--text-muted) !important; 
+            box-shadow: none; 
+            transform: none; 
+        }
+    </style>
+</head>
+<body>
+
+    <a href="/" class="back-btn"><i class="bi bi-arrow-left me-2"></i> На головну</a>
+    <button id="themeToggle" class="theme-toggle-btn"><i class="bi bi-sun-fill" id="themeIcon"></i></button>
+
+    <div class="container" style="max-width: 800px;">
+        <div class="header-section">
+            <h1>Обробка PDF</h1>
+            <p class="text-muted">Конфіденційно. Безпечно. Зі збереженням оригінального форматування.</p>
+        </div>
+
+        <ul class="nav nav-pills" id="pdfTabs">
+            <li class="nav-item"><button class="nav-link active">Сортування адрес</button></li>
+            <li class="nav-item"><button class="nav-link disabled">Склейка PDF (У розробці)</button></li>
+            <li class="nav-item"><button class="nav-link disabled">Редагування (У розробці)</button></li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade show active">
+                
+                <div class="action-card visible" id="step1">
+                    <h5 style="font-weight: 800; margin-bottom: 20px;">Оберіть метод сортування:</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="choice-btn" onclick="selectSortMethod('order', this)">
+                                <i class="bi bi-sort-numeric-down"></i>
+                                <span>Сортувати за порядком</span>
+                                <small class="text-muted mt-2 d-block" style="font-weight: 400; font-size: 0.85rem;">Звичайне сортування всіх вимог.</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="choice-btn" onclick="selectSortMethod('workers', this)">
+                                <i class="bi bi-people-fill"></i>
+                                <span>Розподілити на контролерів</span>
+                                <small class="text-muted mt-2 d-block" style="font-weight: 400; font-size: 0.85rem;">Розділити будинки між працівниками.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-card" id="step2">
+                    <h5 style="font-weight: 800; margin-bottom: 10px;">Кількість працівників:</h5>
+                    <div class="chips-container">
+                        <div class="chip" onclick="selectWorkerCount(2, this)">2</div>
+                        <div class="chip" onclick="selectWorkerCount(3, this)">3</div>
+                        <div class="chip" onclick="selectWorkerCount(4, this)">4</div>
+                        <div class="chip" onclick="selectWorkerCount(5, this)">5</div>
+                        <input type="number" class="chip-input" placeholder="Своє..." id="customWorkerCount" min="1" oninput="selectWorkerCount(this.value, null, true)">
+                    </div>
+                </div>
+
+                <div class="action-card" id="step3">
+                    <h5 style="font-weight: 800; margin-bottom: 20px;">Завантажте вихідний PDF:</h5>
+                    <label class="custom-file-upload" id="uploadZone">
+                        <i class="bi bi-cloud-arrow-up-fill" style="font-size: 3rem; color: #dc3545; margin-bottom: 10px;"></i>
+                        <span style="font-weight: 800; font-size: 1.2rem;">Перетягніть файл сюди</span>
+                        <span class="text-muted" id="pdfFileName">або натисніть для вибору (.pdf)</span>
+                        <input type="file" id="pdfFileInput" accept=".pdf" onchange="handlePDFUpload(this)">
+                    </label>
+                </div>
+
+                <div class="action-card" id="step4">
+                    <h5 style="font-weight: 800; margin-bottom: 20px;">Розподіл будинків:</h5>
+                    <p class="text-muted mb-4">Натисніть на працівника і позначте будинки, які він забирає.</p>
+                    <div id="addressDistributionArea"></div>
+                    
+                    <button id="generateBtn" class="btn w-100 mt-4" onclick="generateWorkerPDFs()" style="background-color: #dc3545; color: white; font-weight: 800; padding: 15px; border-radius: 12px; font-size: 1.1rem;">
+                        <i class="bi bi-file-earmark-check me-2"></i>Сформувати готові звіти
+                    </button>
+                    <div id="downloadArea" class="mt-3 d-flex flex-column gap-2"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        if (localStorage.getItem('theme') === 'dark') { themeIcon.classList.replace('bi-sun-fill', 'bi-moon-stars-fill'); }
+        themeToggle.addEventListener('click', () => {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            if (isDark) { document.documentElement.removeAttribute('data-theme'); localStorage.setItem('theme', 'light'); themeIcon.classList.replace('bi-moon-stars-fill', 'bi-sun-fill'); } 
+            else { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem('theme', 'dark'); themeIcon.classList.replace('bi-sun-fill', 'bi-moon-stars-fill'); }
+        });
+
+        function smoothScroll(elementId) {
+            setTimeout(() => { document.getElementById(elementId).scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 150);
+        }
+
+        function selectSortMethod(method, btnElement) {
+            document.querySelectorAll('#step1 .choice-btn').forEach(btn => btn.classList.remove('selected'));
+            btnElement.classList.add('selected');
+            document.getElementById('step4').classList.remove('visible'); 
+            document.getElementById('downloadArea').innerHTML = '';
+            document.getElementById('generateBtn').style.display = 'block';
+
+            if (method === 'workers') {
+                document.getElementById('step2').classList.add('visible');
+                document.getElementById('step3').classList.remove('visible');
+                smoothScroll('step2');
+            } else {
+                document.getElementById('step2').classList.remove('visible');
+                document.getElementById('step3').classList.add('visible');
+                smoothScroll('step3');
+            }
+        }
+
+        function selectWorkerCount(count, chipElement, isInput = false) {
+            if (!isInput) {
+                document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+                chipElement.classList.add('active');
+                document.getElementById('customWorkerCount').value = ''; 
+            } else {
+                document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            }
+            if (count > 0) {
+                document.getElementById('step3').classList.add('visible');
+                smoothScroll('step3');
+            }
+        }
+
+        let currentSessionId = "";
+
+        async function handlePDFUpload(input) {
+            if (input.files.length === 0) return;
+            const file = input.files[0];
+            
+            const isWorkers = document.querySelector('#step1 .choice-btn.selected').innerText.includes('Розподілити');
+            const method = isWorkers ? 'workers' : 'order';
+            
+            let workersCount = 1;
+            if (isWorkers) {
+                const activeChip = document.querySelector('.chip.active');
+                workersCount = activeChip ? activeChip.innerText : document.getElementById('customWorkerCount').value;
+                if (!workersCount || workersCount < 2) {
+                    alert("Оберіть кількість працівників!"); return;
+                }
+            }
+
+            document.getElementById('pdfFileName').innerHTML = '<div class="spinner-border spinner-border-sm text-danger" role="status"></div> Обробляємо документ...';
+            document.getElementById('uploadZone').style.borderColor = '#dc3545';
+            document.getElementById('downloadArea').innerHTML = '';
+            document.getElementById('generateBtn').style.display = 'block';
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('method', method);
+            formData.append('workers', workersCount);
+
+            try {
+                const response = await fetch('/api/pdf/upload-and-parse', { method: 'POST', body: formData });
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    document.getElementById('pdfFileName').innerHTML = '<i class="bi bi-check-circle-fill text-success"></i> Файл проаналізовано!';
+                    
+                    if (method === 'order') {
+                        window.location.href = result.download_url;
+                    } else {
+                        currentSessionId = result.session_id;
+                        renderWorkers(result.addresses, result.workers);
+                        document.getElementById('step4').classList.add('visible');
+                        smoothScroll('step4');
+                    }
+                } else {
+                    alert("Помилка: " + (result.detail || result.message));
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Сталася помилка з'єднання з сервером.");
+            }
+        }
+
+        function renderWorkers(addresses, workersCount) {
+            const container = document.getElementById('addressDistributionArea');
+            container.innerHTML = ""; 
+
+            let fullHtml = "";
+            for (let i = 1; i <= workersCount; i++) {
+                let html = `
+                <div class="worker-card">
+                    <div class="worker-header" data-bs-toggle="collapse" data-bs-target="#worker${i}">
+                        <span><i class="bi bi-person-fill me-2"></i>Працівник ${i}</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </div>
+                    <div id="worker${i}" class="collapse worker-body">
+                `;
+                
+                addresses.forEach((addr, aIdx) => {
+                    html += `<div class="mb-3">
+                                <strong style="display:block; margin-bottom: 12px; color: var(--text-main);"><i class="bi bi-geo-alt-fill text-muted me-2"></i>${addr.street}</strong>
+                                <div class="d-flex flex-wrap gap-2">`;
+                    addr.houses.forEach((house, hIdx) => {
+                        html += `<label class="house-chip-label">
+                                    <input type="checkbox" class="house-checkbox w-checkbox" data-worker="${i}" data-street="${addr.street}" data-house="${house}">
+                                    <span class="house-text">${house}</span>
+                                 </label>`;
+                    });
+                    html += `</div></div>`;
+                });
+                
+                html += `</div></div>`;
+                fullHtml += html;
+            }
+            
+            container.innerHTML = fullHtml;
+
+            const checkboxes = document.querySelectorAll('.w-checkbox');
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', function() {
+                    const street = this.getAttribute('data-street');
+                    const house = this.getAttribute('data-house');
+                    const workerId = this.getAttribute('data-worker');
+                    const isChecked = this.checked;
+
+                    checkboxes.forEach(otherCb => {
+                        if (otherCb.getAttribute('data-street') === street && 
+                            otherCb.getAttribute('data-house') === house && 
+                            otherCb.getAttribute('data-worker') !== workerId) {
+                            otherCb.disabled = isChecked;
+                        }
+                    });
+                });
+            });
+        }
+
+        async function generateWorkerPDFs() {
+            const checkboxes = document.querySelectorAll('.w-checkbox:checked');
+            const distribution = {};
+            
+            checkboxes.forEach(cb => {
+                const w = "Працівник_" + cb.getAttribute('data-worker');
+                const s = cb.getAttribute('data-street');
+                const h = cb.getAttribute('data-house');
+                if (!distribution[w]) distribution[w] = [];
+                distribution[w].push({street: s, house: h});
+            });
+
+            if (Object.keys(distribution).length === 0) {
+                alert("Ви не призначили жодного будинку працівникам!");
+                return;
+            }
+
+            const btn = document.getElementById('generateBtn');
+            btn.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Формування...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/pdf/generate-workers', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ session_id: currentSessionId, distribution: distribution })
+                });
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    btn.style.display = 'none';
+                    const downloadArea = document.getElementById('downloadArea');
+                    downloadArea.innerHTML = '';
+
+                    result.files.forEach(f => {
+                        let wName = f.worker.replace('_', ' ');
+                        let workerDist = distribution[f.worker];
+                        let streetMap = {};
+                        
+                        workerDist.forEach(item => {
+                            if (!streetMap[item.street]) streetMap[item.street] = [];
+                            streetMap[item.street].push(item.house);
+                        });
+                        
+                        let addressStrings = [];
+                        for (let st in streetMap) {
+                            addressStrings.push(`${st} ${streetMap[st].join(', ')}`);
+                        }
+                        let addressText = addressStrings.join('; ');
+                        
+                        let linkBtn = document.createElement('a');
+                        linkBtn.href = f.url;
+                        linkBtn.download = '';
+                        linkBtn.className = 'btn text-start shadow-sm';
+                        linkBtn.style.backgroundColor = '#198754';
+                        linkBtn.style.color = 'white';
+                        linkBtn.style.fontWeight = '700';
+                        linkBtn.style.padding = '12px 20px';
+                        linkBtn.style.borderRadius = '12px';
+                        linkBtn.style.fontSize = '0.95rem';
+                        linkBtn.style.lineHeight = '1.4';
+                        linkBtn.style.textDecoration = 'none';
+                        linkBtn.innerHTML = `<i class="bi bi-download me-2"></i>Звіт ${wName}<br><small style="font-size:0.8rem; font-weight:400; opacity:0.9;">${addressText}</small>`;
+                        
+                        downloadArea.appendChild(linkBtn);
+                    });
+                } else {
+                    alert("Помилка генерації на сервері.");
+                    btn.innerHTML = '<i class="bi bi-file-earmark-check me-2"></i>Сформувати готові звіти';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Помилка з'єднання.");
+                btn.innerHTML = '<i class="bi bi-file-earmark-check me-2"></i>Сформувати готові звіти';
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

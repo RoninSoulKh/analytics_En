@@ -3,6 +3,7 @@ import magic
 import time
 import shutil
 import uuid
+import json
 import asyncio
 import secrets
 import sqlite3
@@ -11,7 +12,7 @@ import io
 import threading
 from datetime import datetime
 from fastapi import FastAPI, Request, File, UploadFile, BackgroundTasks, Form, HTTPException
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -20,6 +21,7 @@ from app.scripts.debts import run_debts_analysis
 from app.scripts.routes import run_routes_generation
 from app.scripts.calls import run_calls_analysis
 from app.scripts.warnings import run_warnings_analysis
+from app.scripts.pdf_processor import PDFProcessor 
 
 app = FastAPI(title="Energy Analytics API")
 
@@ -28,9 +30,11 @@ SECRET_ACCESS_KEY = os.getenv("SECRET_ACCESS_KEY", "change_me_in_production")
 UPLOAD_DIR = "uploads"
 DOWNLOAD_DIR = "downloads"
 DB_FILE = "security_logs.db"
+PDF_TEMP_DIR = os.path.join("temp", "pdf_processing") 
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+os.makedirs(PDF_TEMP_DIR, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -38,7 +42,6 @@ templates = Jinja2Templates(directory="templates")
 # --- Database Setup ---
 
 def init_db():
-    """Initialize SQLite database for SOC logging."""
     with sqlite3.connect(DB_FILE) as conn:
         conn.execute('''
             CREATE TABLE IF NOT EXISTS logs (
@@ -56,7 +59,6 @@ threading.Thread(target=start_bot_polling, daemon=True).start()
 # --- Utility Functions ---
 
 def log_to_db(event: str, ip: str, country: str, details: str = ""):
-    """Write security events to SQLite database."""
     try:
         with sqlite3.connect(DB_FILE) as conn:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -68,35 +70,35 @@ def log_to_db(event: str, ip: str, country: str, details: str = ""):
         print(f"DB Write Error: {e}")
 
 def get_client_info(request: Request):
-    """Extract real client IP and country via Cloudflare headers."""
     ip = request.headers.get("CF-Connecting-IP") or request.client.host
     country = request.headers.get("CF-IPCountry") or "Unknown"
     return ip, country
 
 def remove_file(path: str):
-    """Safely remove a file from the filesystem."""
     if os.path.exists(path):
         try:
-            os.remove(path)
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
         except Exception as e:
             print(f"Cleanup error: {path} - {e}")
 
 async def auto_delete_task(path: str, delay: int = 1800):
-    """Background task to delete files after a specific retention period."""
     await asyncio.sleep(delay)
     remove_file(path)
 
 def maintenance_cleanup():
-    """Clear temporary files older than 30 minutes."""
     now = time.time()
-    for folder in [UPLOAD_DIR, DOWNLOAD_DIR]:
+    for folder in [UPLOAD_DIR, DOWNLOAD_DIR, PDF_TEMP_DIR]:
+        if not os.path.exists(folder):
+            continue
         for f in os.listdir(folder):
             p = os.path.join(folder, f)
             if os.path.getmtime(p) < now - 1800:
                 remove_file(p)
 
 def is_valid_spreadsheet_archive(file_content: bytes) -> bool:
-    """Deep inspection of ZIP archives to verify spreadsheet structures."""
     try:
         with zipfile.ZipFile(io.BytesIO(file_content)) as z:
             file_list = z.namelist()
@@ -106,15 +108,13 @@ def is_valid_spreadsheet_archive(file_content: bytes) -> bool:
     except Exception:
         return False
 
-# --- Routes ---
+# --- Core Routes ---
 
 @app.post("/verify-password")
 async def verify_password(request: Request, background_tasks: BackgroundTasks, access_password: str = Form(...)):
-    # Constant-time comparison to prevent timing attacks
     if secrets.compare_digest(access_password, SECRET_ACCESS_KEY):
         return {"status": "authorized"}
     
-    # Log brute-force attempts on the API endpoint
     client_ip, client_country = get_client_info(request)
     details = "ACTION: WRONG_PASSWORD_API"
     
@@ -131,14 +131,12 @@ async def read_root(request: Request):
 
 @app.get("/downloads/{filename}")
 async def secure_download(filename: str, background_tasks: BackgroundTasks):
-    # Prevent Directory Traversal attacks
     safe_name = os.path.basename(filename)
     path = os.path.join(DOWNLOAD_DIR, safe_name)
     
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="File expired or not found")
     
-    # One-time download: trigger deletion after serving
     background_tasks.add_task(remove_file, path)
     return FileResponse(path=path, filename=safe_name)
 
@@ -157,7 +155,6 @@ async def handle_upload(
     storage_name = f"{uid}_{original_name}"
     temp_path = os.path.join(UPLOAD_DIR, storage_name)
 
-    # MIME type verification using Magic Bytes
     header = await file.read(2048)
     await file.seek(0)
     detected_mime = magic.from_buffer(header, mime=True)
@@ -175,54 +172,15 @@ async def handle_upload(
     
     allowed_extensions = ('.xlsx', '.xls', '.csv', '.ods', '.pdf')
     
-    # 1. Basic Validation
     if not original_name.lower().endswith(allowed_extensions) or detected_mime not in allowed_mimes:
-        client_ip, client_country = get_client_info(request)
-        details = f"FILE: {original_name} | MIME: {detected_mime}"
-        
-        log_entry = f"EVENT: UNAUTHORIZED_FILE_UPLOAD\nSRC_IP: {client_ip}\nREGION: {client_country}\n{details}"
-        
-        background_tasks.add_task(send_telegram_alert, log_entry)
-        background_tasks.add_task(log_to_db, "UNAUTHORIZED_FILE_UPLOAD", client_ip, client_country, details)
-        
         return templates.TemplateResponse("result.html", {
-            "request": request,
-            "error": "SECURITY_VIOLATION: Invalid file signature. Incident logged."
+            "request": request, "error": "SECURITY_VIOLATION: Invalid file signature."
         })
 
-    # 2. Deep Inspection for Archives
-    if detected_mime in ['application/zip', 'application/octet-stream']:
-        full_content = await file.read()
-        await file.seek(0)
-        
-        if not is_valid_spreadsheet_archive(full_content):
-            client_ip, client_country = get_client_info(request)
-            details = f"FILE: {original_name} | REASON: Malformed archive payload"
-            
-            log_entry = f"EVENT: MALICIOUS_PAYLOAD_BLOCKED\nSRC_IP: {client_ip}\nREGION: {client_country}\n{details}"
-            
-            background_tasks.add_task(send_telegram_alert, log_entry)
-            background_tasks.add_task(log_to_db, "MALICIOUS_PAYLOAD_BLOCKED", client_ip, client_country, details)
-            
-            return templates.TemplateResponse("result.html", {
-                "request": request,
-                "error": "SECURITY_VIOLATION: Invalid payload structure. Incident logged."
-            })
-
-    # Access control for restricted modules
     if report_type == "debts":
         if not access_password or not secrets.compare_digest(access_password, SECRET_ACCESS_KEY):
-            client_ip, client_country = get_client_info(request)
-            details = "ACTION: WRONG_PASSWORD_FORM"
-            
-            log_entry = f"EVENT: BRUTEFORCE_ATTEMPT_DEBTS\nSRC_IP: {client_ip}\nREGION: {client_country}\n{details}"
-            
-            background_tasks.add_task(send_telegram_alert, log_entry)
-            background_tasks.add_task(log_to_db, "BRUTEFORCE_ATTEMPT_DEBTS", client_ip, client_country, details)
-
             return templates.TemplateResponse("result.html", {
-                "request": request,
-                "error": "ACCESS_DENIED: Critical module restricted. Incident logged."
+                "request": request, "error": "ACCESS_DENIED: Critical module restricted."
             })
             
     with open(temp_path, "wb") as buffer:
@@ -255,9 +213,115 @@ async def handle_upload(
         
     except Exception as e:
         print(f"Processing error: {e}")
-        return templates.TemplateResponse("result.html", {
-            "request": request,
-            "error": "An error occurred during report generation."
-        })
+        return templates.TemplateResponse("result.html", {"request": request, "error": "Processing Error"})
     finally:
         remove_file(temp_path)
+
+
+# --- PDF Tools Routes ---
+
+@app.get("/pdf", response_class=HTMLResponse)
+async def pdf_page(request: Request):
+    return templates.TemplateResponse("pdf.html", {"request": request})
+
+@app.post("/api/pdf/upload-and-parse")
+async def upload_and_parse_pdf(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    method: str = Form(...), 
+    workers: int = Form(1)
+):
+    background_tasks.add_task(maintenance_cleanup)
+    
+    if not file.filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+
+    session_id = str(uuid.uuid4())
+    session_dir = os.path.join(PDF_TEMP_DIR, session_id)
+    os.makedirs(session_dir, exist_ok=True)
+    
+    file_path = os.path.join(session_dir, "original.pdf")
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        processor = PDFProcessor(file_path)
+        cards_data = processor.parse_and_split()
+        
+        with open(os.path.join(session_dir, "cards_data.json"), "w", encoding="utf-8") as f:
+            json.dump(cards_data, f, ensure_ascii=False)
+
+        if method == "order":
+            sorted_cards = processor.sort_cards_by_address(cards_data)
+            output_file = os.path.join(session_dir, "sorted_output.pdf")
+            processor.merge_cards_to_pdf(sorted_cards, output_file)
+            
+            # Фонове видалення через 30 хвилин (як і в ексельках)
+            asyncio.create_task(auto_delete_task(session_dir))
+
+            return JSONResponse(content={
+                "status": "success", 
+                "download_url": f"/api/pdf/download/{session_id}/sorted_output.pdf",
+                "message": "Файл успішно відсортовано"
+            })
+            
+        elif method == "workers":
+            grouped_addresses = processor.group_by_street_and_house(cards_data)
+            return JSONResponse(content={
+                "status": "success",
+                "session_id": session_id,
+                "addresses": grouped_addresses,
+                "workers": workers
+            })
+
+    except Exception as e:
+        shutil.rmtree(session_dir, ignore_errors=True)
+        print(f"Error processing PDF: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/pdf/generate-workers")
+async def generate_workers_pdf(request: Request):
+    data = await request.json()
+    session_id = data.get("session_id")
+    distribution = data.get("distribution")
+
+    session_dir = os.path.join(PDF_TEMP_DIR, session_id)
+    if not os.path.exists(session_dir):
+        raise HTTPException(status_code=404, detail="Session not found or expired")
+
+    try:
+        with open(os.path.join(session_dir, "cards_data.json"), "r", encoding="utf-8") as f:
+            cards_data = json.load(f)
+            
+        processor = PDFProcessor(os.path.join(session_dir, "original.pdf"))
+        
+        output_files = []
+        for worker_id, assigned_houses in distribution.items():
+            if not assigned_houses: continue
+            
+            worker_cards = processor.filter_cards_by_houses(cards_data, assigned_houses)
+            sorted_worker_cards = processor.sort_cards_by_address(worker_cards)
+            
+            output_filename = f"Вимога_повідомлення_{worker_id}.pdf"
+            output_path = os.path.join(session_dir, output_filename)
+            
+            processor.merge_cards_to_pdf(sorted_worker_cards, output_path)
+            output_files.append({"worker": worker_id, "url": f"/api/pdf/download/{session_id}/{output_filename}"})
+
+        # Фонове видалення через 30 хвилин
+        asyncio.create_task(auto_delete_task(session_dir))
+
+        return JSONResponse(content={"status": "success", "files": output_files})
+
+    except Exception as e:
+        print(f"Error generating worker PDFs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/pdf/download/{session_id}/{filename}")
+async def download_pdf(session_id: str, filename: str):
+    file_path = os.path.join(PDF_TEMP_DIR, session_id, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    return FileResponse(path=file_path, filename=filename, media_type='application/pdf')
