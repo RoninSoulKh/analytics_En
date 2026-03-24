@@ -56,6 +56,14 @@ def init_db():
 init_db()
 threading.Thread(target=start_bot_polling, daemon=True).start()
 
+def periodic_cleanup():
+    while True:
+        time.sleep(300) # Проверяем каждые 5 минут (300 секунд)
+        maintenance_cleanup()
+
+# Запускаем нашего фонового "сборщика мусора"
+threading.Thread(target=periodic_cleanup, daemon=True).start()
+
 # --- Utility Functions ---
 
 def log_to_db(event: str, ip: str, country: str, details: str = ""):
@@ -95,7 +103,8 @@ def maintenance_cleanup():
             continue
         for f in os.listdir(folder):
             p = os.path.join(folder, f)
-            if os.path.getmtime(p) < now - 1800:
+            # Удаляем файлы, которые старше 5 минут (300 секунд)
+            if os.path.getmtime(p) < now - 300:
                 remove_file(p)
 
 def is_valid_spreadsheet_archive(file_content: bytes) -> bool:
@@ -256,9 +265,6 @@ async def upload_and_parse_pdf(
             sorted_cards = processor.sort_cards_by_address(cards_data)
             output_file = os.path.join(session_dir, "sorted_output.pdf")
             processor.merge_cards_to_pdf(sorted_cards, output_file)
-            
-            # Фонове видалення через 30 хвилин (як і в ексельках)
-            asyncio.create_task(auto_delete_task(session_dir))
 
             return JSONResponse(content={
                 "status": "success", 
@@ -308,9 +314,6 @@ async def generate_workers_pdf(request: Request):
             
             processor.merge_cards_to_pdf(sorted_worker_cards, output_path)
             output_files.append({"worker": worker_id, "url": f"/api/pdf/download/{session_id}/{output_filename}"})
-
-        # Фонове видалення через 30 хвилин
-        asyncio.create_task(auto_delete_task(session_dir))
 
         return JSONResponse(content={"status": "success", "files": output_files})
 
