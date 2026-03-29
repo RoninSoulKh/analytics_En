@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir --upgrade -r requirements.txt
 COPY . .
 
 # Ensure required directories exist
-RUN mkdir -p uploads downloads
+RUN mkdir -p uploads downloads temp
 
 # Set up non-root execution environment
 RUN useradd -m appuser && chown -R appuser:appuser /code
