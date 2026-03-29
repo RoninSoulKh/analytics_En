@@ -15,7 +15,6 @@ jobs:
 
       - name: Create .env file
         run: |
-          # Робот дістає ключі з сейфу і створює бойовий .env файл перед запуском
           echo "SECRET_ACCESS_KEY=${{ secrets.SECRET_ACCESS_KEY }}" >> .env
           echo "TG_BOT_TOKEN=${{ secrets.TG_BOT_TOKEN }}" >> .env
           echo "TG_CHAT_ID=${{ secrets.TG_CHAT_ID }}" >> .env
@@ -25,5 +24,4 @@ jobs:
 
       - name: Build and Restart Docker
         run: |
-          # Робот сам збирає і перезапускає твій додаток
-          docker compose up -d --build --remove-orphans
+          /usr/bin/docker compose up -d --build --remove-orphans

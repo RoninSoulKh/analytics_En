@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,7 +16,6 @@
     </script>
 
     <style>
-        /* ЗМІННІ ДЛЯ СВІТЛОЇ (ДЕФОЛТНОЇ) ТЕМИ */
         :root {
             --bg-main: #ffffff;
             --bg-secondary: #f8fafc;
@@ -30,7 +29,6 @@
             --input-bg: #f8fafc;
         }
 
-        /* ЗМІННІ ДЛЯ ТЕМНОЇ ТЕМИ */
         [data-theme="dark"] {
             --bg-main: #121212;
             --bg-secondary: #1a1a1a;
@@ -62,7 +60,6 @@
         .menu-btn:hover::before { width: 100%; }
         .menu-btn:hover span, .menu-btn:hover i { color: #ffffff !important; }
 
-        /* ЕСТЕТИЧНИЙ КВАДРАТ */
         .pdf-btn-square { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); color: #dc3545; font-weight: 800; font-size: 0.9rem; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s ease; width: 75px; height: 75px; flex-shrink: 0; cursor: pointer; position: relative; z-index: 1; overflow: hidden; margin-left: 5px; }
         .pdf-btn-square i { font-size: 1.8rem; margin-bottom: 2px; z-index: 2; transition: all 0.3s ease; }
         .pdf-btn-square span { z-index: 2; transition: all 0.3s ease; }
@@ -102,7 +99,6 @@
         .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1060; }
         .toast { background-color: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
 
-        /* СТИЛІ ФУТЕРА БЕЗПЕКИ */
         .security-footer { background-color: var(--bg-card); border-top: 1px solid var(--border-strong); padding: 4rem 0; margin-top: auto; }
         .sec-feature { padding: 2rem; border-radius: 20px; background: var(--bg-secondary); border: 1px solid var(--border-strong); height: 100%; transition: all 0.3s ease; }
         .sec-feature:hover { transform: translateY(-5px); border-color: #50A74B; box-shadow: 0 10px 30px rgba(80, 167, 75, 0.08); }
