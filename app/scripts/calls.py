@@ -37,19 +37,15 @@ def run_calls_analysis(input_path, output_dir):
     if rows_data:
         current_name = rows_data[0][1]
         
-        # ФІКС: Конвертуємо дату в строку ОДРАЗУ
         current_date_raw = rows_data[0][5]
         current_date_str = current_date_raw.strftime('%d.%m.%Y') if pd.notnull(current_date_raw) else 'Невідома дата'
         count = 0
 
-        # Вписуємо відсортовані дані
         for row in rows_data:
             name = row[1]
             date_raw = row[5]
             date_str = date_raw.strftime('%d.%m.%Y') if pd.notnull(date_raw) else 'Невідома дата'
 
-            # Зміна працівника або дати - додаємо підсумок (жовтий рядок)
-            # ФІКС: Порівнюємо ТЕКСТ, щоб уникнути багу нескінченного циклу
             if name != current_name or date_str != current_date_str:
                 summary_row = [None] * len(row)
                 summary_row[5] = f"Всього дзвінків за {current_date_str}: {count}"
@@ -70,8 +66,8 @@ def run_calls_analysis(input_path, output_dir):
                 count = 0
 
             formatted_row = list(row)
-            if pd.notnull(formatted_row[5]):
-                formatted_row[5] = formatted_row[5].strftime('%d.%m.%Y')
+            # ФІКС: Замінюємо NaT на None, щоб openpyxl не вмирав
+            formatted_row[5] = formatted_row[5].strftime('%d.%m.%Y') if pd.notnull(formatted_row[5]) else None
             ws1.append(formatted_row)
 
             for cell in ws1[ws1.max_row]:
@@ -94,7 +90,6 @@ def run_calls_analysis(input_path, output_dir):
 
     valid_dates = data_df[5].dropna()
     if not valid_dates.empty:
-        # ФІКС: Конвертуємо у звичайний int, щоб уникнути помилок типів pandas
         target_year = int(valid_dates.dt.year.mode()[0])
         target_month = int(valid_dates.dt.month.mode()[0])
         _, num_days = calendar.monthrange(target_year, target_month)
