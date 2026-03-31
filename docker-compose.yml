@@ -8,9 +8,6 @@ services:
       - TG_CHAT_ID=${TG_CHAT_ID}
       - CF_ZONE_ID=${CF_ZONE_ID}
       - CF_API_TOKEN=${CF_API_TOKEN}
-    volumes:
-      - ./uploads:/code/uploads
-      - ./downloads:/code/downloads
     restart: always
 
   cloudflared:
