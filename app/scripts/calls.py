@@ -17,6 +17,10 @@ def run_calls_analysis(input_path, output_dir):
     # 1. Читаємо дані через pandas для математики та сортування
     df_raw = pd.read_excel(input_path, sheet_name=0, header=None)
     data_df = df_raw.iloc[3:].copy() # Пропускаємо шапку (3 рядки)
+    
+    # --- ФІКС 1: Видаляємо "фантомні" порожні рядки з кінця файлу, які вішають сервер ---
+    data_df = data_df.dropna(subset=[1]) 
+    
     data_df = data_df.where(pd.notnull(data_df), None)
 
     # Сортування: ПІБ (колонка 1), Дата (колонка 5)
@@ -68,6 +72,9 @@ def run_calls_analysis(input_path, output_dir):
             formatted_row = list(row)
             if pd.notnull(formatted_row[5]):
                 formatted_row[5] = formatted_row[5].strftime('%d.%m.%Y')
+            else:
+                formatted_row[5] = None # --- ФІКС 2: Уникаємо помилки бібліотеки openpyxl ---
+                
             ws1.append(formatted_row)
 
             for cell in ws1[ws1.max_row]:
@@ -91,8 +98,9 @@ def run_calls_analysis(input_path, output_dir):
 
     valid_dates = data_df[5].dropna()
     if not valid_dates.empty:
-        target_year = valid_dates.dt.year.mode()[0]
-        target_month = valid_dates.dt.month.mode()[0]
+        # --- ФІКС 3: Обертаємо в int(), щоб модуль календаря не падав від пустих значень ---
+        target_year = int(valid_dates.dt.year.mode()[0])
+        target_month = int(valid_dates.dt.month.mode()[0])
         _, num_days = calendar.monthrange(target_year, target_month)
         month_dates = [pd.Timestamp(year=target_year, month=target_month, day=d) for d in range(1, num_days + 1)]
     else:
