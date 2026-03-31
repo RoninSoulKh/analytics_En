@@ -36,19 +36,19 @@ def run_calls_analysis(input_path, output_dir):
 
     if rows_data:
         current_name = rows_data[0][1]
-        
-        current_date_raw = rows_data[0][5]
-        current_date_str = current_date_raw.strftime('%d.%m.%Y') if pd.notnull(current_date_raw) else 'Невідома дата'
+        current_date = rows_data[0][5]
         count = 0
 
+        # Вписуємо відсортовані дані
         for row in rows_data:
             name = row[1]
-            date_raw = row[5]
-            date_str = date_raw.strftime('%d.%m.%Y') if pd.notnull(date_raw) else 'Невідома дата'
+            date = row[5]
 
-            if name != current_name or date_str != current_date_str:
+            # Зміна працівника або дати - додаємо підсумок (жовтий рядок)
+            if name != current_name or date != current_date:
                 summary_row = [None] * len(row)
-                summary_row[5] = f"Всього дзвінків за {current_date_str}: {count}"
+                date_str = current_date.strftime('%d.%m.%Y') if pd.notnull(current_date) else 'Невідома дата'
+                summary_row[5] = f"Всього дзвінків за {date_str}: {count}"
                 ws1.append(summary_row)
 
                 for cell in ws1[ws1.max_row]:
@@ -62,12 +62,12 @@ def run_calls_analysis(input_path, output_dir):
                     ws1.append([None]); ws1.append([None])
 
                 current_name = name
-                current_date_str = date_str
+                current_date = date
                 count = 0
 
             formatted_row = list(row)
-            # ФІКС: Замінюємо NaT на None, щоб openpyxl не вмирав
-            formatted_row[5] = formatted_row[5].strftime('%d.%m.%Y') if pd.notnull(formatted_row[5]) else None
+            if pd.notnull(formatted_row[5]):
+                formatted_row[5] = formatted_row[5].strftime('%d.%m.%Y')
             ws1.append(formatted_row)
 
             for cell in ws1[ws1.max_row]:
@@ -77,7 +77,8 @@ def run_calls_analysis(input_path, output_dir):
 
         # Останній підсумок
         summary_row = [None] * len(rows_data[0])
-        summary_row[5] = f"Всього дзвінків за {current_date_str}: {count}"
+        date_str = current_date.strftime('%d.%m.%Y') if pd.notnull(current_date) else 'Невідома дата'
+        summary_row[5] = f"Всього дзвінків за {date_str}: {count}"
         ws1.append(summary_row)
         for cell in ws1[ws1.max_row]:
             cell.fill = yellow_fill; cell.font = bold_font; cell.border = thin_border
@@ -90,8 +91,8 @@ def run_calls_analysis(input_path, output_dir):
 
     valid_dates = data_df[5].dropna()
     if not valid_dates.empty:
-        target_year = int(valid_dates.dt.year.mode()[0])
-        target_month = int(valid_dates.dt.month.mode()[0])
+        target_year = valid_dates.dt.year.mode()[0]
+        target_month = valid_dates.dt.month.mode()[0]
         _, num_days = calendar.monthrange(target_year, target_month)
         month_dates = [pd.Timestamp(year=target_year, month=target_month, day=d) for d in range(1, num_days + 1)]
     else:
