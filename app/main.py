@@ -15,6 +15,8 @@ from fastapi import FastAPI, Request, File, UploadFile, BackgroundTasks, Form, H
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from app.scripts.map_generator import process_map_file
+from dotenv import load_dotenv
 
 from app.scripts.tg_bot import send_telegram_alert, start_bot_polling
 from app.scripts.debts import run_debts_analysis
@@ -22,6 +24,8 @@ from app.scripts.routes import run_routes_generation
 from app.scripts.calls import run_calls_analysis
 from app.scripts.warnings import run_warnings_analysis
 from app.scripts.pdf_processor import PDFProcessor 
+
+load_dotenv()
 
 app = FastAPI(title="Energy Analytics API")
 
@@ -330,6 +334,25 @@ async def download_pdf(session_id: str, filename: str):
         raise HTTPException(status_code=404, detail="File not found")
     
     return FileResponse(path=file_path, filename=filename, media_type='application/pdf')
+
+@app.post("/api/map/generate")
+async def map_generate(request: Request, file: UploadFile = File(...)):
+    api_key = os.getenv("VISICOM_DATA_KEY")
+    if not api_key:
+        return JSONResponse({"error": "Ключ VISICOM_DATA_KEY не налаштовано на сервері!"}, status_code=500)
+        
+    temp_path = os.path.join(UPLOAD_DIR, file.filename)
+    with open(temp_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    try:
+        geojson_data = process_map_file(temp_path, DB_FILE, api_key)
+        return JSONResponse(geojson_data)
+    except Exception as e:
+        print(f"Map processing error: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+    finally:
+        remove_file(temp_path)
 
 @app.get("/map", response_class=HTMLResponse)
 async def map_page(request: Request):

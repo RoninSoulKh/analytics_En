@@ -56,8 +56,9 @@
                     <i class="bi bi-map me-2"></i>Побудувати карту
                 </button>
             </form>
-            <div id="mapStatus" class="mt-3 small text-muted text-center d-none">
-                <div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>Обробка адрес...
+            <div id="mapStatus" class="mt-3 small text-center d-none" style="color: var(--text-main); font-weight: 600; min-height: 24px;">
+                <div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>
+                <span id="statusText">Обробка адрес...</span>
             </div>
         </div>
     </div>
@@ -89,24 +90,53 @@
             const file = document.getElementById('mapFile').files[0];
 
             btn.disabled = true;
+            status.innerHTML = '<div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>Аналізуємо таблицю...';
             status.classList.remove('d-none');
 
             const formData = new FormData();
             formData.append('file', file);
 
             try {
-                // ТУТ БУДЕ ЗАПИТ НА НАШ МАЙБУТНІЙ БЕКЕНД
-                // const response = await fetch('/api/map/generate', { method: 'POST', body: formData });
-                // const geojsonData = await response.json();
+                const response = await fetch('/api/map/generate', { method: 'POST', body: formData });
+                const result = await response.json();
                 
-                // Емуляція затримки для тесту UI
-                setTimeout(() => {
-                    status.innerHTML = '<i class="bi bi-check-circle-fill text-success me-2"></i>Готово (Тест UI)';
-                    btn.disabled = false;
-                }, 1500);
+                if (response.ok) {
+                    if (window.mapLayer) {
+                        map.removeLayer(window.mapLayer);
+                    }
 
+                    window.mapLayer = L.geoJSON(result, {
+                        pointToLayer: function (feature, latlng) {
+                            return L.circleMarker(latlng, {
+                                radius: 8,
+                                fillColor: feature.properties.color,
+                                color: "#ffffff",
+                                weight: 2,
+                                opacity: 1,
+                                fillOpacity: 0.9
+                            });
+                        },
+                        onEachFeature: function (feature, layer) {
+                            layer.bindPopup(`
+                             <div style="font-family: 'Manrope'; min-width: 180px;">
+                                <h6 class="fw-bold mb-1">${feature.properties.address}</h6>
+                                <div class="small" style="color: ${feature.properties.color}">${feature.properties.status}</div>
+                             </div>
+                          `);
+                         }
+                    }).addTo(map);
+
+                    if (window.mapLayer.getBounds().isValid()) {
+                        map.fitBounds(window.mapLayer.getBounds(), { padding: [50, 50] });
+                    }
+
+                    status.innerHTML = '<i class="bi bi-check-circle-fill text-success me-2"></i>Карта побудована!';
+                } else {
+                    status.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Помилка: ${result.error}`;
+                }
             } catch (error) {
-                status.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Помилка';
+                status.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Помилка з\'єднання із сервером';
+            } finally {
                 btn.disabled = false;
             }
         });

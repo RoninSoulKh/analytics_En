@@ -18,6 +18,8 @@ services:
     command: tunnel run
     environment:
       - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    volumes:
+      - ./security_logs.db:/app/security_logs.db
     restart: always
     depends_on:
       - energy_analytics_diggy
