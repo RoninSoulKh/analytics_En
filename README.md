@@ -55,7 +55,7 @@ The infrastructure utilizes a modern, hands-off deployment strategy designed to 
 * **Frontend:** HTML5, CSS3, Bootstrap 5, Jinja2 Templates, Vanilla JS
 * **Infrastructure:** Docker, Docker Compose, Cloudflare `cloudflared`
 * **Automation:** GitHub Actions, Self-Hosted Runner
-
+ 
 ## ⚙️ Quick Start (Local Development)
 
 **1. Clone the repository:**
