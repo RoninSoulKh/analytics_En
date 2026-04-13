@@ -60,13 +60,23 @@
         .menu-btn:hover::before { width: 100%; }
         .menu-btn:hover span, .menu-btn:hover i { color: #ffffff !important; }
 
-        .pdf-btn-square { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); color: #dc3545; font-weight: 800; font-size: 0.9rem; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s ease; width: 75px; height: 75px; flex-shrink: 0; cursor: pointer; position: relative; z-index: 1; overflow: hidden; margin-left: 5px; }
-        .pdf-btn-square i { font-size: 1.8rem; margin-bottom: 2px; z-index: 2; transition: all 0.3s ease; }
-        .pdf-btn-square span { z-index: 2; transition: all 0.3s ease; }
-        .pdf-btn-square::before { content: ''; position: absolute; top: 0; left: 0; width: 0; height: 100%; background: #dc3545; z-index: -1; transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
-        .pdf-btn-square:hover { border-color: #dc3545; transform: translateY(-3px); box-shadow: 0 10px 30px rgba(220, 53, 69, 0.2); }
-        .pdf-btn-square:hover::before { width: 100%; }
-        .pdf-btn-square:hover span, .pdf-btn-square:hover i { color: #ffffff !important; }
+        .square-btn-group { display: flex; flex-direction: column; gap: 0.8rem; }
+
+        .square-btn { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); font-weight: 800; font-size: 0.85rem; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s ease; width: 85px; height: 85px; flex-shrink: 0; cursor: pointer; position: relative; z-index: 1; overflow: hidden; }
+        .square-btn i { font-size: 1.8rem; margin-bottom: 2px; z-index: 2; transition: all 0.3s ease; }
+        .square-btn span { z-index: 2; transition: all 0.3s ease; }
+        .square-btn::before { content: ''; position: absolute; top: 0; left: 0; width: 0; height: 100%; z-index: -1; transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
+        .square-btn:hover { transform: translateY(-3px); }
+        .square-btn:hover::before { width: 100%; }
+        .square-btn:hover span, .square-btn:hover i { color: #ffffff !important; }
+
+        .square-btn.pdf { color: #dc3545; }
+        .square-btn.pdf::before { background: #dc3545; }
+        .square-btn.pdf:hover { border-color: #dc3545; box-shadow: 0 10px 30px rgba(220, 53, 69, 0.2); }
+
+        .square-btn.map { color: #0dcaf0; }
+        .square-btn.map::before { background: #0dcaf0; }
+        .square-btn.map:hover { border-color: #0dcaf0; box-shadow: 0 10px 30px rgba(13, 202, 240, 0.2); }
 
         .right-panel { background-color: var(--bg-secondary); position: relative; background-image: radial-gradient(var(--border-strong) 1px, transparent 1px); background-size: 20px 20px; display: flex; align-items: center; justify-content: center; transition: background-color 0.3s; }
         .blur-blob { position: absolute; width: 500px; height: 500px; background: linear-gradient(135deg, rgba(80, 167, 75, 0.4), rgba(46, 204, 113, 0.2)); border-radius: 50%; filter: blur(80px); z-index: 0; }
@@ -142,10 +152,16 @@
                             </div>
                         </div>
 
-                        <a href="/pdf" class="pdf-btn-square">
-                            <i class="bi bi-file-earmark-pdf-fill"></i>
-                            <span>PDF</span>
-                        </a>
+                        <div class="square-btn-group">
+                            <a href="/pdf" class="square-btn pdf">
+                                <i class="bi bi-file-earmark-pdf-fill"></i>
+                                <span>PDF</span>
+                            </a>
+                            <a href="/map" class="square-btn map">
+                                <i class="bi bi-geo-alt-fill"></i>
+                                <span>Карта</span>
+                            </a>
+                        </div>
 
                     </div>
 

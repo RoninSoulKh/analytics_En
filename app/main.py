@@ -53,6 +53,15 @@ def init_db():
                 details TEXT
             )
         ''')
+        # НОВОЕ: Добавляем таблицу для кэширования полигонов Visicom
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS geocache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                raw_address TEXT UNIQUE,
+                clean_address TEXT,
+                geojson TEXT
+            )
+        ''')
 init_db()
 threading.Thread(target=start_bot_polling, daemon=True).start()
 
@@ -321,3 +330,8 @@ async def download_pdf(session_id: str, filename: str):
         raise HTTPException(status_code=404, detail="File not found")
     
     return FileResponse(path=file_path, filename=filename, media_type='application/pdf')
+
+@app.get("/map", response_class=HTMLResponse)
+async def map_page(request: Request):
+    tiles_key = os.getenv("VISICOM_TILES_KEY", "")
+    return templates.TemplateResponse(request=request, name="map.html", context={"request": request, "visicom_tiles_key": tiles_key})

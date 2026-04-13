@@ -21,6 +21,8 @@ jobs:
           echo "TUNNEL_TOKEN=${{ secrets.TUNNEL_TOKEN }}" >> .env
           echo "CF_ZONE_ID=${{ secrets.CF_ZONE_ID }}" >> .env
           echo "CF_API_TOKEN=${{ secrets.CF_API_TOKEN }}" >> .env
+          echo "VISICOM_DATA_KEY=${{ secrets.VISICOM_DATA_KEY }}" >> .env
+          echo "VISICOM_TILES_KEY=${{ secrets.VISICOM_TILES_KEY }}" >> .env
 
       - name: Build and Restart Docker
         run: |

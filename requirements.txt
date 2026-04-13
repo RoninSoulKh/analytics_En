@@ -10,3 +10,4 @@ requests
 pyTelegramBotAPI
 matplotlib
 PyMuPDF==1.23.21
+odfpy

@@ -8,6 +8,8 @@ services:
       - TG_CHAT_ID=${TG_CHAT_ID}
       - CF_ZONE_ID=${CF_ZONE_ID}
       - CF_API_TOKEN=${CF_API_TOKEN}
+      - VISICOM_DATA_KEY=${VISICOM_DATA_KEY}
+      - VISICOM_TILES_KEY=${VISICOM_TILES_KEY}
     restart: always
 
   cloudflared:
