@@ -28,12 +28,16 @@
         .back-btn { color: var(--text-main); font-weight: 600; text-decoration: none; display: flex; align-items: center; }
         .back-btn:hover { color: #0dcaf0; }
 
-        /* Контейнер для карти на весь екран мінус хедер */
         #map-container { flex-grow: 1; position: relative; }
         #map { width: 100%; height: 100%; background: var(--bg-secondary); }
         
-        /* Панель завантаження файлу поверх карти */
         .control-panel { position: absolute; top: 20px; right: 20px; z-index: 1000; background: var(--bg-card); padding: 20px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid var(--border-strong); width: 350px; }
+        
+        .search-control { position: absolute; top: 20px; left: 60px; z-index: 1000; width: 300px; background: var(--bg-card); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .search-control input { border: none; background: transparent; padding: 12px 15px; width: 100%; color: var(--text-main); font-weight: 600; outline: none; }
+        
+        .legend-box { display: flex; align-items: center; font-size: 0.85rem; margin-bottom: 8px; color: var(--text-main); }
+        .legend-color { width: 15px; height: 15px; border-radius: 50%; margin-right: 10px; display: inline-block; }
     </style>
 </head>
 <body>
@@ -41,96 +45,147 @@
     <nav class="navbar navbar-custom py-3">
         <div class="container-fluid px-4">
             <a href="/" class="back-btn"><i class="bi bi-arrow-left me-2"></i> На головну</a>
-            <span class="navbar-brand mx-auto fw-bold" style="color: #0dcaf0;"><i class="bi bi-geo-alt-fill me-2"></i>Карта обходів</span>
+            <span class="navbar-brand mx-auto fw-bold" style="color: #0dcaf0;"><i class="bi bi-geo-alt-fill me-2"></i>Smart Карта Обходів</span>
         </div>
     </nav>
 
     <div id="map-container">
+        <div class="search-control">
+            <input type="text" id="addressSearch" placeholder="🔍 Пошук за адресою..." onkeyup="searchAddress()">
+        </div>
+
         <div id="map"></div>
         
         <div class="control-panel">
-            <h6 class="fw-bold mb-3">Завантажити таблицю</h6>
+            <h6 class="fw-bold mb-3">Завантаження даних</h6>
             <form id="mapUploadForm" enctype="multipart/form-data">
-                <input class="form-control mb-3" type="file" id="mapFile" accept=".ods" required>
-                <button type="submit" class="btn w-100" style="background-color: #0dcaf0; color: white; font-weight: 600;" id="processBtn">
+                <div class="mb-2">
+                    <label class="form-label small text-muted fw-bold">1. Мапа обходів (МАСТЕР)</label>
+                    <input class="form-control form-control-sm" type="file" id="masterFile" accept=".ods" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-danger fw-bold"><i class="bi bi-shield-lock-fill me-1"></i>2. Недопуски (Опціонально)</label>
+                    <input class="form-control form-control-sm" type="file" id="nedopuskiFile" accept=".ods">
+                    <small class="text-muted" style="font-size: 0.7rem;">Дані обробляються in-memory і не зберігаються.</small>
+                </div>
+
+                <button type="submit" class="btn w-100 mb-3" style="background-color: #0dcaf0; color: white; font-weight: 600;" id="processBtn">
                     <i class="bi bi-map me-2"></i>Побудувати карту
                 </button>
             </form>
-            <div id="mapStatus" class="mt-3 small text-center d-none" style="color: var(--text-main); font-weight: 600; min-height: 24px;">
+
+            <div id="mapStatus" class="mt-2 small text-center d-none" style="color: var(--text-main); font-weight: 600;">
                 <div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>
                 <span id="statusText">Обробка адрес...</span>
             </div>
+
+            <hr style="border-color: var(--border-strong);">
+            
+            <h6 class="fw-bold mb-2" style="font-size: 0.9rem;">Легенда:</h6>
+            <div class="legend-box"><span class="legend-color" style="background: #dc3545;"></span> Свіжий обхід (останні 2 міс.)</div>
+            <div class="legend-box"><span class="legend-color" style="background: #ffc107;"></span> Старий обхід (+1 міс. назад)</div>
+            <div class="legend-box"><span class="legend-color" style="background: #adb5bd;"></span> Обходу не було</div>
+            <div class="legend-box"><span class="legend-color" style="background: #000; border: 2px solid red;"></span> ⚠️ Недопуск (< 2 міс.)</div>
         </div>
     </div>
 
     <script>
-        const map = L.map('map', {
-            center: [49.9935, 36.2304],
-            zoom: 12,
-            minZoom: 10,
-            maxBounds: [
-                [49.0, 35.0],
-                [51.0, 38.0]
-            ]
-        });
-
+        // Ініціалізація карти
+        const map = L.map('map', { center: [49.9935, 36.2304], zoom: 12 });
         L.tileLayer('https://tms{s}.visicom.ua/2.0.0/planet3/base_uk/{z}/{x}/{y}.png?key=a9d17492d422723f270c4b215369ccfc', {
-            maxZoom: 19,
-            subdomains: '123',
-            tms: true,
-            noWrap: true,
+            maxZoom: 19, subdomains: '123', tms: true,
             attribution: 'Картографічні дані © АТ «<a href="https://api.visicom.ua/">Візіком</a>»'
         }).addTo(map);
 
-        // Логіка відправки форми (підключимо до бекенду пізніше)
+        // Групи шарів
+        let baseRouteLayer = L.layerGroup().addTo(map);
+        let nedopuskiLayer = L.layerGroup().addTo(map); // Включений за замовчуванням
+        let activeLayer = L.layerGroup(); // Вимкнений за замовчуванням
+
+        const overlayMaps = {
+            "Всі маршрути (2+1)": baseRouteLayer,
+            "⚠️ Тільки Недопуски": nedopuskiLayer,
+            "🟢 Тільки Активні обходи": activeLayer
+        };
+        L.control.layers(null, overlayMaps, {collapsed: false}).addTo(map);
+
+        let allFeaturesData = []; // Для пошуку
+
         document.getElementById('mapUploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const btn = document.getElementById('processBtn');
             const status = document.getElementById('mapStatus');
-            const file = document.getElementById('mapFile').files[0];
+            const masterFile = document.getElementById('masterFile').files[0];
+            const nedopuskiFile = document.getElementById('nedopuskiFile').files[0];
 
             btn.disabled = true;
-            status.innerHTML = '<div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>Аналізуємо таблицю...';
+            status.innerHTML = '<div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>Аналізуємо таблиці...';
             status.classList.remove('d-none');
 
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('master_file', masterFile);
+            if (nedopuskiFile) {
+                formData.append('nedopuski_file', nedopuskiFile);
+            }
 
             try {
                 const response = await fetch('/api/map/generate', { method: 'POST', body: formData });
                 const result = await response.json();
                 
                 if (response.ok) {
-                    if (window.mapLayer) {
-                        map.removeLayer(window.mapLayer);
-                    }
+                    baseRouteLayer.clearLayers();
+                    nedopuskiLayer.clearLayers();
+                    activeLayer.clearLayers();
+                    allFeaturesData = [];
 
-                    window.mapLayer = L.geoJSON(result, {
+                    const geojsonLayer = L.geoJSON(result, {
                         pointToLayer: function (feature, latlng) {
-                            return L.circleMarker(latlng, {
+                            allFeaturesData.push({feature: feature, latlng: latlng});
+
+                            const isNedopusk = feature.properties.has_nedopusk;
+                            
+                            // Створюємо базовий маркер маршруту
+                            const baseMarker = L.circleMarker(latlng, {
                                 radius: 8,
                                 fillColor: feature.properties.color,
-                                color: "#ffffff",
-                                weight: 2,
-                                opacity: 1,
-                                fillOpacity: 0.9
+                                color: "#ffffff", weight: 2, opacity: 1, fillOpacity: 0.8
                             });
-                        },
-                        onEachFeature: function (feature, layer) {
-                            layer.bindPopup(`
-                             <div style="font-family: 'Manrope'; min-width: 180px;">
-                                <h6 class="fw-bold mb-1">${feature.properties.address}</h6>
-                                <div class="small" style="color: ${feature.properties.color}">${feature.properties.status}</div>
-                             </div>
-                          `);
-                         }
-                    }).addTo(map);
 
-                    if (window.mapLayer.getBounds().isValid()) {
-                        map.fitBounds(window.mapLayer.getBounds(), { padding: [50, 50] });
+                            const popupContent = `
+                                <div style="font-family: 'Manrope'; min-width: 180px;">
+                                    <h6 class="fw-bold mb-1">${feature.properties.address}</h6>
+                                    <div class="small fw-bold" style="color: ${feature.properties.color}">${feature.properties.status}</div>
+                                    ${isNedopusk ? '<div class="small text-danger fw-bold mt-1">⚠️ Зафіксовано Недопуск</div>' : ''}
+                                </div>
+                            `;
+                            baseMarker.bindPopup(popupContent);
+                            baseRouteLayer.addLayer(baseMarker);
+
+                            // Якщо активний обход
+                            if(feature.properties.is_active) {
+                                const actMarker = L.circleMarker(latlng, {
+                                    radius: 8, fillColor: feature.properties.color, color: "#ffffff", weight: 2, opacity: 1, fillOpacity: 0.8
+                                }).bindPopup(popupContent);
+                                activeLayer.addLayer(actMarker);
+                            }
+
+                            // Якщо недопуск - малюємо агресивний маркер
+                            if (isNedopusk) {
+                                const nedopuskMarker = L.circleMarker(latlng, {
+                                    radius: 10, fillColor: "#000000", color: "#dc3545", weight: 3, opacity: 1, fillOpacity: 0.9
+                                }).bindPopup(popupContent);
+                                nedopuskiLayer.addLayer(nedopuskMarker);
+                            }
+
+                            return baseMarker; // Для самого L.geoJSON (можна проігнорувати, бо ми додали в LayerGroups)
+                        }
+                    });
+
+                    if (geojsonLayer.getBounds().isValid()) {
+                        map.fitBounds(geojsonLayer.getBounds(), { padding: [50, 50] });
                     }
 
-                    status.innerHTML = '<i class="bi bi-check-circle-fill text-success me-2"></i>Карта побудована!';
+                    status.innerHTML = `<i class="bi bi-check-circle-fill text-success me-2"></i>Карта побудована! (${result.features.length} адрес)`;
                 } else {
                     status.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Помилка: ${result.error}`;
                 }
@@ -140,6 +195,18 @@
                 btn.disabled = false;
             }
         });
+
+        // Проста логіка пошуку
+        function searchAddress() {
+            const query = document.getElementById('addressSearch').value.toLowerCase();
+            if(query.length < 3) return;
+
+            const found = allFeaturesData.find(item => item.feature.properties.address.toLowerCase().includes(query));
+            if (found) {
+                map.setView(found.latlng, 18);
+                // Можна додати анімацію або відкриття попапу
+            }
+        }
     </script>
 </body>
 </html>

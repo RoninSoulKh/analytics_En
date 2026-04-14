@@ -3,81 +3,84 @@ import requests
 import json
 import sqlite3
 import re
-import os
+import io
+import time
+from datetime import datetime
 
-VISICOM_API_UK = "https://api.visicom.ua/data-api/5.0/uk/search.json"
-VISICOM_API_RU = "https://api.visicom.ua/data-api/5.0/ru/search.json"
+VISICOM_API_UK = "https://api.visicom.ua/data-api/5.0/uk/geocode.json"
 
 def clean_address_for_api(street: str, house: str) -> str:
-    """Улучшенный очиститель: понимает шосе, проспекты и лечит Салтовку"""
     if pd.isna(street) or str(street).strip() == "": return ""
     
-    s = str(street).strip().upper()
+    s = str(street).strip()
+    s = re.sub(r'^[мг]\.\s*', '', s, flags=re.IGNORECASE)
+    
+    s = s.title()
+    
+    s = s.replace("В'їзд", "в'їзд").replace("Вул.", "вул.").replace("Пров.", "пров.")
+    
     h = str(house).strip() if pd.notna(house) else ""
     h = re.sub(r'(?i)\b(д\.|д\s|буд\.|б\.)\s*', '', h)
     
-    # --- БЛОК ИСКЛЮЧЕНИЙ (самая дичь из таблиц) ---
     replacements = {
         'САЛТІВСЬКЕ': 'Салтівське шосе',
         'САЛТОВСКОЕ': 'Салтівське шосе',
         'ЮБІЛЕЙНИЙ': 'Ювілейний проспект',
         'ЮБИЛЕЙНЫЙ': 'Ювілейний проспект',
-        'ГВ ШИРОНІНЦІВ': 'Гвардійців-Широнінців вулиця',
-        'ГВ ШИРОНИНЦЕВ': 'Гвардійців-Широнінців вулиця',
-        'ТРАКТОРОВЕДОВ': 'Тракторобудівників проспект',
-        'ТРАКТОРОБУДІВНИКІВ': 'Тракторобудівників проспект'
+        'ГВ ШИРОНІНЦІВ': 'вулиця Гвардійців-Широнінців',
+        'ТРАКТОРОВЕДОВ': 'проспект Тракторобудівників',
+        'ТРАКТОРОБУДІВНИКІВ': 'проспект Тракторобудівників'
     }
     
+    s_upper = str(street).strip().upper()
     for old, new in replacements.items():
-        if old in s:
+        if old in s_upper:
             s = new
             break
 
-    # --- ОПРЕДЕЛЕНИЕ ТИПА (вул, пров, шосе) ---
-    # Если в названии УЖЕ есть тип (ШОСЕ, ПРОСПЕКТ и т.д.), мы ничего не добавляем
-    known_types = ['ШОСЕ', 'ПРОСП', 'ПРОВ', 'ВУЛ', 'МАЙДАН', 'В\'ЇЗД', 'В-Д', 'ПЕР']
-    has_type = any(t in s for t in known_types)
-    
-    if not has_type:
-        # Если типа нет, пробуем почистить русские сокращения
-        s = s.replace('УЛ ', 'вул. ').replace('ПЕР ', 'пров. ').replace('ВЪЕЗД ', "в'їзд ")
-        # Если всё еще нет типа - по умолчанию это улица
-        if not any(t in s.upper() for t in ['ВУЛ.', 'ПРОВ.', 'ПРОСП.', "В'ЇЗД"]):
-            s = f"вул. {s}"
-
-    # Финальная сборка
     addr = f"{s}, {h}".strip(', ')
     addr = ' '.join(addr.split())
-    
-    return f"м. Харків, {addr}"
+    return addr
 
 def fetch_polygon_from_visicom(clean_addr: str, api_key: str):
-    """Пробует найти адрес. Сначала УКР, потом РУС, потом 'как есть'"""
-    params = {"text": clean_addr, "key": api_key, "limit": 1}
+    variants = [
+        f"Харків, {clean_addr}", 
+        clean_addr
+    ]
     
-    # 1. Сначала пробуем наш 'умный' адрес на УКР и РУС
-    for url in [VISICOM_API_UK, VISICOM_API_RU]:
+    for variant in variants:
+        params = {"text": variant, "key": api_key, "limit": 1}
         try:
-            resp = requests.get(url, params=params, timeout=10)
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("features"):
-                    feat = data["features"][0]
-                    if "geometry" not in feat:
-                        feat["geometry"] = feat.get("geo_centroid")
-                    return json.dumps(feat)
-        except: continue
+            resp = requests.get(VISICOM_API_UK, params=params, timeout=5)
+            
+            if resp.status_code != 200:
+                print(f"\n[!] Ошибка API: Код {resp.status_code}")
+                time.sleep(1)
+                continue
+            
+            data = resp.json()
+            
+            if data.get('type') == 'FeatureCollection' and data.get("features"):
+                 feat = data["features"][0]
+                 if "geometry" not in feat:
+                     feat["geometry"] = feat.get("geo_centroid")
+                 if feat.get("geometry"):
+                     return json.dumps(feat)
+                     
+            elif data.get('type') == 'Feature':
+                 if "geometry" not in data:
+                     data["geometry"] = data.get("geo_centroid")
+                 if data.get("geometry"):
+                     return json.dumps(data)
+
+        except requests.exceptions.Timeout:
+            time.sleep(1)
+        except Exception as e:
+            print(f"\n[!] Ошибка при парсинге ответа: {e}")
+            pass
         
-    # 2. Если не вышло - пробуем БЕЗ города (иногда API так лучше понимает)
-    short_addr = clean_addr.replace("м. Харків, ", "")
-    try:
-        resp = requests.get(VISICOM_API_UK, params={"text": short_addr, "key": api_key, "limit": 1}, timeout=10)
-        if resp.status_code == 200 and resp.json().get("features"):
-            feat = resp.json()["features"][0]
-            if "geometry" not in feat: feat["geometry"] = feat.get("geo_centroid")
-            return json.dumps(feat)
-    except: pass
-    
+        time.sleep(0.4) 
+        
     return None
 
 def get_or_fetch_geojson(full_addr: str, db_path: str, api_key: str):
@@ -85,23 +88,63 @@ def get_or_fetch_geojson(full_addr: str, db_path: str, api_key: str):
         cursor = conn.cursor()
         cursor.execute("SELECT geojson FROM geocache WHERE raw_address = ?", (full_addr,))
         row = cursor.fetchone()
-        if row: return json.loads(row[0]) if row[0] else None
+        if row: 
+            return json.loads(row[0]) if row[0] else None
             
-        print(f"🔍 Поиск: {full_addr}...", end=" ", flush=True)
+        print(f"🔍 API Запит: {full_addr}...", end=" ", flush=True)
         geojson_str = fetch_polygon_from_visicom(full_addr, api_key)
-        print("✅ OK" if geojson_str else "❌")
+        print("✅ Знайдено" if geojson_str else "❌ Не знайдено")
             
+        # Записываем в кэш (даже если None, чтобы не мучать API одними и теми же ошибками)
         cursor.execute("INSERT INTO geocache (raw_address, clean_address, geojson) VALUES (?, ?, ?)",
                        (full_addr, full_addr, geojson_str))
         conn.commit()
+        
+        # Обязательная пауза после успешного/неуспешного запроса к API (Анти-Блок)
+        time.sleep(0.4) 
+        
         return json.loads(geojson_str) if geojson_str else None
 
-def process_map_file(file_path: str, db_path: str, api_key: str):
+def parse_nedopuski_in_memory(file_bytes):
+    """Секретный парсер: держит данные только в ОЗУ, фильтрует последние 2 месяца."""
+    if not file_bytes: return set()
+    
+    try:
+        df = pd.read_excel(io.BytesIO(file_bytes), engine='odf', header=None)
+        
+        nedopuski_addresses = set()
+        current_date = datetime.now()
+        
+        for idx in range(1, len(df)):
+            row = df.iloc[idx]
+            street, house = row[0], row[1]
+            date_val = row[8] # Колонка I
+            
+            if pd.isna(street) or pd.isna(date_val): continue
+            
+            try:
+                n_date = pd.to_datetime(date_val, dayfirst=True)
+                months_diff = (current_date.year - n_date.year) * 12 + current_date.month - n_date.month
+                
+                # Если недопуск был менее 2 месяцев назад
+                if months_diff < 2:
+                    clean_addr = clean_address_for_api(street, house)
+                    nedopuski_addresses.add(clean_addr)
+            except:
+                pass
+                
+        return nedopuski_addresses
+    except Exception as e:
+        print(f"Помилка парсингу Недопусків: {e}")
+        return set()
+
+def process_map_file(file_path: str, db_path: str, api_key: str, nedopuski_bytes=None):
     df = pd.read_excel(file_path, sheet_name='2025', engine='odf', header=None)
-    # ТЗ: Протяжка улиц вниз
     df[0] = df[0].replace(r'^\s*$', pd.NA, regex=True).ffill()
     
-    # ТЗ: Поиск колонок месяцев
+    # Парсим недопуски в память (если файл был загружен)
+    recent_nedopuski = parse_nedopuski_in_memory(nedopuski_bytes)
+    
     month_names = ['січ', 'лют', 'бер', 'квіт', 'трав', 'черв', 'лип', 'серп', 'вер', 'жовт', 'лист', 'груд']
     month_cols = []
     for i in range(len(df.columns)):
@@ -109,7 +152,7 @@ def process_map_file(file_path: str, db_path: str, api_key: str):
         if any(m in v0 for m in month_names) or any(m in v1 for m in month_names):
             month_cols.append(i)
 
-    # ТЗ: Цвета 2+1 (2 красных последних, 1 желтый перед ними)
+    # Цвета 2+1
     target_cols = month_cols[-3:] if len(month_cols) >= 3 else month_cols
     col_yellow = target_cols[-3] if len(target_cols) >= 3 else None
     cols_red = target_cols[-2:] if len(target_cols) >= 2 else target_cols
@@ -122,17 +165,28 @@ def process_map_file(file_path: str, db_path: str, api_key: str):
         
         clean_addr = clean_address_for_api(street, house)
         
-        # ТЗ: Если ячейка не пустая (любой символ) - обход был
         is_visited_red = any(pd.notna(row[c]) and str(row[c]).strip() != "" for c in cols_red)
         is_visited_yellow = pd.notna(row[col_yellow]) and str(row[col_yellow]).strip() != "" if col_yellow is not None else False
         
         color, status = "#adb5bd", "Обхода не было"
-        if is_visited_red: color, status = "#dc3545", "Свежий обход"
-        elif is_visited_yellow: color, status = "#ffc107", "Старый обход"
+        is_active = False
+        if is_visited_red: 
+            color, status = "#dc3545", "Свежий обход"
+            is_active = True
+        elif is_visited_yellow: 
+            color, status = "#ffc107", "Старый обход"
+
+        has_nedopusk = clean_addr in recent_nedopuski
 
         feature = get_or_fetch_geojson(clean_addr, db_path, api_key)
         if feature:
-            feature['properties'] = {'address': clean_addr, 'color': color, 'status': status}
+            feature['properties'] = {
+                'address': clean_addr, 
+                'color': color, 
+                'status': status,
+                'has_nedopusk': has_nedopusk,
+                'is_active': is_active
+            }
             features.append(feature)
 
     print(f"\n🏁 Готово! Домов на карте: {len(features)}")

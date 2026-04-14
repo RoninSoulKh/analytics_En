@@ -336,17 +336,25 @@ async def download_pdf(session_id: str, filename: str):
     return FileResponse(path=file_path, filename=filename, media_type='application/pdf')
 
 @app.post("/api/map/generate")
-async def map_generate(request: Request, file: UploadFile = File(...)):
+async def map_generate(
+    request: Request, 
+    master_file: UploadFile = File(...),
+    nedopuski_file: UploadFile = File(None)
+):
     api_key = os.getenv("VISICOM_DATA_KEY")
     if not api_key:
         return JSONResponse({"error": "Ключ VISICOM_DATA_KEY не налаштовано на сервері!"}, status_code=500)
         
-    temp_path = os.path.join(UPLOAD_DIR, file.filename)
+    temp_path = os.path.join(UPLOAD_DIR, master_file.filename)
     with open(temp_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        shutil.copyfileobj(master_file.file, buffer)
+        
+    nedopuski_bytes = None
+    if nedopuski_file:
+        nedopuski_bytes = await nedopuski_file.read()
         
     try:
-        geojson_data = process_map_file(temp_path, DB_FILE, api_key)
+        geojson_data = process_map_file(temp_path, DB_FILE, api_key, nedopuski_bytes)
         return JSONResponse(geojson_data)
     except Exception as e:
         print(f"Map processing error: {e}")
