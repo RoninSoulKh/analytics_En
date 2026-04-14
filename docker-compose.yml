@@ -10,6 +10,8 @@ services:
       - CF_API_TOKEN=${CF_API_TOKEN}
       - VISICOM_DATA_KEY=${VISICOM_DATA_KEY}
       - VISICOM_TILES_KEY=${VISICOM_TILES_KEY}
+    volumes:
+      - ./security_logs.db:/code/security_logs.db
     restart: always
 
   cloudflared:
@@ -18,8 +20,6 @@ services:
     command: tunnel run
     environment:
       - TUNNEL_TOKEN=${TUNNEL_TOKEN}
-    volumes:
-      - ./security_logs.db:/app/security_logs.db
     restart: always
     depends_on:
       - energy_analytics_diggy

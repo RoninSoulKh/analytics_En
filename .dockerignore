@@ -1,0 +1,8 @@
+venv/
+.venv/
+actions-runner/
+security_logs.db
+*.ods
+*.xlsx
+__pycache__/
+.git/
