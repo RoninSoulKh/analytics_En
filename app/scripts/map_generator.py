@@ -10,13 +10,12 @@ from datetime import datetime
 VISICOM_API_UK = "https://api.visicom.ua/data-api/5.0/uk/geocode.json"
 
 def clean_address_for_api(street: str, house: str) -> str:
-    if pd.isna(street) or str(street).strip() == "": return ""
+    if pd.isna(street) or str(street).strip() == "":
+        return ""
     
     s = str(street).strip()
     s = re.sub(r'^[мг]\.\s*', '', s, flags=re.IGNORECASE)
-    
     s = s.title()
-    
     s = s.replace("В'їзд", "в'їзд").replace("Вул.", "вул.").replace("Пров.", "пров.")
     
     h = str(house).strip() if pd.notna(house) else ""
@@ -39,27 +38,21 @@ def clean_address_for_api(street: str, house: str) -> str:
             break
 
     addr = f"{s}, {h}".strip(', ')
-    addr = ' '.join(addr.split())
-    return addr
+    return ' '.join(addr.split())
 
 def fetch_polygon_from_visicom(clean_addr: str, api_key: str):
-    variants = [
-        f"Харків, {clean_addr}", 
-        clean_addr
-    ]
+    variants = [f"Харків, {clean_addr}", clean_addr]
     
     for variant in variants:
         params = {"text": variant, "key": api_key, "limit": 1}
         try:
             resp = requests.get(VISICOM_API_UK, params=params, timeout=5)
-            
             if resp.status_code != 200:
-                print(f"\n[!] Ошибка API: Код {resp.status_code}")
+                print(f"\n[!] Помилка API: Код {resp.status_code}")
                 time.sleep(1)
                 continue
             
             data = resp.json()
-            
             if data.get('type') == 'FeatureCollection' and data.get("features"):
                  feat = data["features"][0]
                  if "geometry" not in feat:
@@ -72,15 +65,13 @@ def fetch_polygon_from_visicom(clean_addr: str, api_key: str):
                      data["geometry"] = data.get("geo_centroid")
                  if data.get("geometry"):
                      return json.dumps(data)
-
+                     
         except requests.exceptions.Timeout:
             time.sleep(1)
-        except Exception as e:
-            print(f"\n[!] Ошибка при парсинге ответа: {e}")
+        except Exception:
             pass
         
         time.sleep(0.4) 
-        
     return None
 
 def get_or_fetch_geojson(full_addr: str, db_path: str, api_key: str):
@@ -95,41 +86,34 @@ def get_or_fetch_geojson(full_addr: str, db_path: str, api_key: str):
         geojson_str = fetch_polygon_from_visicom(full_addr, api_key)
         print("✅ Знайдено" if geojson_str else "❌ Не знайдено")
             
-        # Записываем в кэш (даже если None, чтобы не мучать API одними и теми же ошибками)
         cursor.execute("INSERT INTO geocache (raw_address, clean_address, geojson) VALUES (?, ?, ?)",
                        (full_addr, full_addr, geojson_str))
         conn.commit()
-        
-        # Обязательная пауза после успешного/неуспешного запроса к API (Анти-Блок)
         time.sleep(0.4) 
-        
         return json.loads(geojson_str) if geojson_str else None
 
 def parse_nedopuski_in_memory(file_bytes):
-    """Секретный парсер: держит данные только в ОЗУ, фильтрует последние 2 месяца."""
-    if not file_bytes: return set()
-    
+    if not file_bytes:
+        return set()
+        
     try:
         df = pd.read_excel(io.BytesIO(file_bytes), engine='odf', header=None)
-        
         nedopuski_addresses = set()
         current_date = datetime.now()
         
         for idx in range(1, len(df)):
             row = df.iloc[idx]
             street, house = row[0], row[1]
-            date_val = row[8] # Колонка I
+            date_val = row[8]
             
-            if pd.isna(street) or pd.isna(date_val): continue
-            
+            if pd.isna(street) or pd.isna(date_val):
+                continue
+                
             try:
                 n_date = pd.to_datetime(date_val, dayfirst=True)
                 months_diff = (current_date.year - n_date.year) * 12 + current_date.month - n_date.month
-                
-                # Если недопуск был менее 2 месяцев назад
                 if months_diff < 2:
-                    clean_addr = clean_address_for_api(street, house)
-                    nedopuski_addresses.add(clean_addr)
+                    nedopuski_addresses.add(clean_address_for_api(street, house))
             except:
                 pass
                 
@@ -142,52 +126,47 @@ def process_map_file(file_path: str, db_path: str, api_key: str, nedopuski_bytes
     df = pd.read_excel(file_path, sheet_name='2025', engine='odf', header=None)
     df[0] = df[0].replace(r'^\s*$', pd.NA, regex=True).ffill()
     
-    # Парсим недопуски в память (если файл был загружен)
     recent_nedopuski = parse_nedopuski_in_memory(nedopuski_bytes)
     
     month_names = ['січ', 'лют', 'бер', 'квіт', 'трав', 'черв', 'лип', 'серп', 'вер', 'жовт', 'лист', 'груд']
     month_cols = []
-    for i in range(len(df.columns)):
-        v0, v1 = str(df.iloc[0, i]).lower(), str(df.iloc[1, i]).lower()
-        if any(m in v0 for m in month_names) or any(m in v1 for m in month_names):
+    
+    for i in range(2, len(df.columns)):
+        words = str(df.iloc[0, i]).lower().split() + str(df.iloc[1, i]).lower().split()
+        if any(word.startswith(m) for m in month_names for word in words):
             month_cols.append(i)
 
-    # Цвета 2+1
-    target_cols = month_cols[-3:] if len(month_cols) >= 3 else month_cols
-    col_yellow = target_cols[-3] if len(target_cols) >= 3 else None
-    cols_red = target_cols[-2:] if len(target_cols) >= 2 else target_cols
+    # ЖОРСТКА ОБРІЗКА: Тільки 2 останні місяці! Ніяких жовтих точок і третіх місяців!
+    cols_red = month_cols[-2:] if len(month_cols) >= 2 else month_cols
 
     features = []
     for idx in range(2, len(df)):
         row = df.iloc[idx]
         street, house = row[0], row[1]
-        if pd.isna(house) or str(house).strip() == "": continue
         
-        clean_addr = clean_address_for_api(street, house)
+        if pd.isna(house) or str(house).strip() == "":
+            continue
         
+        # Перевіряємо виключно останні 2 колонки (наприклад, Квітень, Березень)
         is_visited_red = any(pd.notna(row[c]) and str(row[c]).strip() != "" for c in cols_red)
-        is_visited_yellow = pd.notna(row[col_yellow]) and str(row[col_yellow]).strip() != "" if col_yellow is not None else False
         
-        color, status = "#adb5bd", "Обхода не было"
-        is_active = False
-        if is_visited_red: 
-            color, status = "#dc3545", "Свежий обход"
-            is_active = True
-        elif is_visited_yellow: 
-            color, status = "#ffc107", "Старый обход"
+        # Якщо в останніх 2 місяцях пусто — МИТТЄВО пропускаємо, API не чіпаємо!
+        if not is_visited_red:
+            continue
 
-        has_nedopusk = clean_addr in recent_nedopuski
-
+        clean_addr = clean_address_for_api(street, house)
         feature = get_or_fetch_geojson(clean_addr, db_path, api_key)
+        
         if feature:
             feature['properties'] = {
                 'address': clean_addr, 
-                'color': color, 
-                'status': status,
-                'has_nedopusk': has_nedopusk,
-                'is_active': is_active
+                'color': "#dc3545", 
+                'text_color': "#dc3545",
+                'status': "Свіжий обхід",
+                'has_nedopusk': clean_addr in recent_nedopuski,
+                'is_active': True
             }
             features.append(feature)
 
-    print(f"\n🏁 Готово! Домов на карте: {len(features)}")
+    print(f"\n🏁 Готово! Будинків на карті: {len(features)}")
     return {"type": "FeatureCollection", "features": features}

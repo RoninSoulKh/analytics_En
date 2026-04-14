@@ -9,8 +9,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
     <script>
         if (localStorage.getItem('theme') === 'dark') {
@@ -19,25 +19,98 @@
     </script>
 
     <style>
-        :root { --bg-main: #ffffff; --bg-secondary: #f8fafc; --bg-card: #ffffff; --text-main: #1a1a1a; --text-muted: #6c757d; --border-strong: #e2e8f0; }
-        [data-theme="dark"] { --bg-main: #121212; --bg-secondary: #1a1a1a; --bg-card: #1e1e1e; --text-main: #f8fafc; --text-muted: #a0aec0; --border-strong: #444444; }
+        :root {
+            --bg-main: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-card: #ffffff;
+            --text-main: #1a1a1a;
+            --text-muted: #6c757d;
+            --border-strong: #e2e8f0;
+        }
+        [data-theme="dark"] {
+            --bg-main: #121212;
+            --bg-secondary: #1a1a1a;
+            --bg-card: #1e1e1e;
+            --text-main: #f8fafc;
+            --text-muted: #a0aec0;
+            --border-strong: #444444;
+        }
 
-        body { font-family: 'Manrope', sans-serif; background-color: var(--bg-main); color: var(--text-main); margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
         
-        .navbar-custom { background-color: var(--bg-card); box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-bottom: 1px solid var(--border-strong); z-index: 1000; }
-        .back-btn { color: var(--text-main); font-weight: 600; text-decoration: none; display: flex; align-items: center; }
+        .navbar-custom {
+            background-color: var(--bg-card);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-bottom: 1px solid var(--border-strong);
+            z-index: 1000;
+        }
+        .back-btn {
+            color: var(--text-main);
+            font-weight: 600;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+        }
         .back-btn:hover { color: #0dcaf0; }
 
         #map-container { flex-grow: 1; position: relative; }
         #map { width: 100%; height: 100%; background: var(--bg-secondary); }
         
-        .control-panel { position: absolute; top: 20px; right: 20px; z-index: 1000; background: var(--bg-card); padding: 20px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid var(--border-strong); width: 350px; }
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-strong);
+            width: 350px;
+        }
         
-        .search-control { position: absolute; top: 20px; left: 60px; z-index: 1000; width: 300px; background: var(--bg-card); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .search-control input { border: none; background: transparent; padding: 12px 15px; width: 100%; color: var(--text-main); font-weight: 600; outline: none; }
+        .search-control {
+            position: absolute;
+            top: 20px;
+            left: 60px;
+            z-index: 1000;
+            width: 300px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .search-control input {
+            border: none;
+            background: transparent;
+            padding: 12px 15px;
+            width: 100%;
+            color: var(--text-main);
+            font-weight: 600;
+            outline: none;
+        }
         
-        .legend-box { display: flex; align-items: center; font-size: 0.85rem; margin-bottom: 8px; color: var(--text-main); }
-        .legend-color { width: 15px; height: 15px; border-radius: 50%; margin-right: 10px; display: inline-block; }
+        .legend-box {
+            display: flex;
+            align-items: center;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 10px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -57,26 +130,25 @@
         <div id="map"></div>
         
         <div class="control-panel">
-            <h6 class="fw-bold mb-3">Завантаження даних</h6>
+            <h6 class="fw-bold mb-3" style="color: var(--text-main);">Завантаження даних</h6>
             <form id="mapUploadForm" enctype="multipart/form-data">
                 <div class="mb-2">
-                    <label class="form-label small text-muted fw-bold">1. Мапа обходів (МАСТЕР)</label>
+                    <label class="form-label small fw-bold" style="color: var(--text-main);">1. Таблиця обходів</label>
                     <input class="form-control form-control-sm" type="file" id="masterFile" accept=".ods" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label small text-danger fw-bold"><i class="bi bi-shield-lock-fill me-1"></i>2. Недопуски (Опціонально)</label>
                     <input class="form-control form-control-sm" type="file" id="nedopuskiFile" accept=".ods">
-                    <small class="text-muted" style="font-size: 0.7rem;">Дані обробляються in-memory і не зберігаються.</small>
                 </div>
 
                 <button type="submit" class="btn w-100 mb-3" style="background-color: #0dcaf0; color: white; font-weight: 600;" id="processBtn">
-                    <i class="bi bi-map me-2"></i>Побудувати карту
+                    Побудувати карту
                 </button>
             </form>
 
             <div id="mapStatus" class="mt-2 small text-center d-none" style="color: var(--text-main); font-weight: 600;">
-                <div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>
-                <span id="statusText">Обробка адрес...</span>
+                <div class="spinner-border spinner-border-sm text-info me-2"></div>
+                <span id="statusText">Обробка...</span>
             </div>
 
             <hr style="border-color: var(--border-strong);">
@@ -84,127 +156,127 @@
             <h6 class="fw-bold mb-2" style="font-size: 0.9rem;">Легенда:</h6>
             <div class="legend-box"><span class="legend-color" style="background: #dc3545;"></span> Свіжий обхід (останні 2 міс.)</div>
             <div class="legend-box"><span class="legend-color" style="background: #ffc107;"></span> Старий обхід (+1 міс. назад)</div>
-            <div class="legend-box"><span class="legend-color" style="background: #adb5bd;"></span> Обходу не було</div>
-            <div class="legend-box"><span class="legend-color" style="background: #000; border: 2px solid red;"></span> ⚠️ Недопуск (< 2 міс.)</div>
+            <div class="legend-box"><span class="legend-color" style="background: #000; border: 2px solid red;"></span> ⚠️ Недопуск (&lt; 2 міс.)</div>
         </div>
     </div>
 
     <script>
-        // Ініціалізація карти
         const map = L.map('map', { center: [49.9935, 36.2304], zoom: 12 });
-        L.tileLayer('https://tms{s}.visicom.ua/2.0.0/planet3/base_uk/{z}/{x}/{y}.png?key=a9d17492d422723f270c4b215369ccfc', {
-            maxZoom: 19, subdomains: '123', tms: true,
-            attribution: 'Картографічні дані © АТ «<a href="https://api.visicom.ua/">Візіком</a>»'
+        L.tileLayer('https://tms{s}.visicom.ua/2.0.0/planet3/base_uk/{z}/{x}/{y}.png?key={{ visicom_tiles_key }}', { 
+            maxZoom: 19, 
+            subdomains: '123', 
+            tms: true 
         }).addTo(map);
 
-        // Групи шарів
         let baseRouteLayer = L.layerGroup().addTo(map);
-        let nedopuskiLayer = L.layerGroup().addTo(map); // Включений за замовчуванням
-        let activeLayer = L.layerGroup(); // Вимкнений за замовчуванням
-
-        const overlayMaps = {
-            "Всі маршрути (2+1)": baseRouteLayer,
-            "⚠️ Тільки Недопуски": nedopuskiLayer,
-            "🟢 Тільки Активні обходи": activeLayer
-        };
-        L.control.layers(null, overlayMaps, {collapsed: false}).addTo(map);
-
-        let allFeaturesData = []; // Для пошуку
+        let nedopuskiLayer = L.layerGroup().addTo(map);
+        let activeLayer = L.layerGroup();
+        
+        L.control.layers(null, { 
+            "Всі маршрути": baseRouteLayer, 
+            "⚠️ Недопуски": nedopuskiLayer, 
+            "🟢 Активні": activeLayer 
+        }, {collapsed: false}).addTo(map);
+        
+        let allFeaturesData = [];
 
         document.getElementById('mapUploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const btn = document.getElementById('processBtn');
             const status = document.getElementById('mapStatus');
-            const masterFile = document.getElementById('masterFile').files[0];
-            const nedopuskiFile = document.getElementById('nedopuskiFile').files[0];
-
-            btn.disabled = true;
-            status.innerHTML = '<div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>Аналізуємо таблиці...';
+            
+            btn.disabled = true; 
             status.classList.remove('d-none');
-
+            
             const formData = new FormData();
-            formData.append('master_file', masterFile);
-            if (nedopuskiFile) {
-                formData.append('nedopuski_file', nedopuskiFile);
+            formData.append('master_file', document.getElementById('masterFile').files[0]);
+            
+            if (document.getElementById('nedopuskiFile').files[0]) {
+                formData.append('nedopuski_file', document.getElementById('nedopuskiFile').files[0]);
             }
-
+            
             try {
                 const response = await fetch('/api/map/generate', { method: 'POST', body: formData });
                 const result = await response.json();
                 
                 if (response.ok) {
-                    baseRouteLayer.clearLayers();
-                    nedopuskiLayer.clearLayers();
-                    activeLayer.clearLayers();
+                    baseRouteLayer.clearLayers(); 
+                    nedopuskiLayer.clearLayers(); 
+                    activeLayer.clearLayers(); 
                     allFeaturesData = [];
-
-                    const geojsonLayer = L.geoJSON(result, {
+                    
+                    L.geoJSON(result, { 
                         pointToLayer: function (feature, latlng) {
-                            allFeaturesData.push({feature: feature, latlng: latlng});
-
-                            const isNedopusk = feature.properties.has_nedopusk;
-                            
-                            // Створюємо базовий маркер маршруту
-                            const baseMarker = L.circleMarker(latlng, {
-                                radius: 8,
-                                fillColor: feature.properties.color,
-                                color: "#ffffff", weight: 2, opacity: 1, fillOpacity: 0.8
+                            const marker = L.circleMarker(latlng, { 
+                                radius: 5, 
+                                fillColor: feature.properties.color, 
+                                color: feature.properties.color, 
+                                weight: 1, 
+                                opacity: 0.8, 
+                                fillOpacity: 0.5 
                             });
-
-                            const popupContent = `
-                                <div style="font-family: 'Manrope'; min-width: 180px;">
-                                    <h6 class="fw-bold mb-1">${feature.properties.address}</h6>
-                                    <div class="small fw-bold" style="color: ${feature.properties.color}">${feature.properties.status}</div>
-                                    ${isNedopusk ? '<div class="small text-danger fw-bold mt-1">⚠️ Зафіксовано Недопуск</div>' : ''}
-                                </div>
-                            `;
-                            baseMarker.bindPopup(popupContent);
-                            baseRouteLayer.addLayer(baseMarker);
-
-                            // Якщо активний обход
+                            
+                            const popup = `
+                                <div style="min-width: 160px;">
+                                    <h6 class="fw-bold mb-1" style="color: var(--text-main);">${feature.properties.address}</h6>
+                                    <div class="small fw-bold" style="color: ${feature.properties.text_color}">${feature.properties.status}</div>
+                                    ${feature.properties.has_nedopusk ? '<div class="text-danger small fw-bold mt-1">⚠️ Недопуск</div>':''}
+                                </div>`;
+                                
+                            marker.bindPopup(popup); 
+                            baseRouteLayer.addLayer(marker);
+                            
+                            allFeaturesData.push({
+                                address: feature.properties.address.toLowerCase(), 
+                                latlng: latlng, 
+                                layer: marker
+                            });
+                            
                             if(feature.properties.is_active) {
-                                const actMarker = L.circleMarker(latlng, {
-                                    radius: 8, fillColor: feature.properties.color, color: "#ffffff", weight: 2, opacity: 1, fillOpacity: 0.8
-                                }).bindPopup(popupContent);
-                                activeLayer.addLayer(actMarker);
+                                activeLayer.addLayer(L.circleMarker(latlng, { 
+                                    radius: 5, 
+                                    fillColor: feature.properties.color, 
+                                    color: feature.properties.color, 
+                                    weight: 1, 
+                                    fillOpacity: 0.5 
+                                }).bindPopup(popup));
                             }
-
-                            // Якщо недопуск - малюємо агресивний маркер
-                            if (isNedopusk) {
-                                const nedopuskMarker = L.circleMarker(latlng, {
-                                    radius: 10, fillColor: "#000000", color: "#dc3545", weight: 3, opacity: 1, fillOpacity: 0.9
-                                }).bindPopup(popupContent);
-                                nedopuskiLayer.addLayer(nedopuskMarker);
+                            
+                            if(feature.properties.has_nedopusk) {
+                                nedopuskiLayer.addLayer(L.circleMarker(latlng, { 
+                                    radius: 7, 
+                                    fillColor: "#000", 
+                                    color: "#dc3545", 
+                                    weight: 2, 
+                                    fillOpacity: 0.8 
+                                }).bindPopup(popup));
                             }
-
-                            return baseMarker; // Для самого L.geoJSON (можна проігнорувати, бо ми додали в LayerGroups)
+                            
+                            return marker;
                         }
                     });
-
-                    if (geojsonLayer.getBounds().isValid()) {
-                        map.fitBounds(geojsonLayer.getBounds(), { padding: [50, 50] });
+                    
+                    if (allFeaturesData.length > 0) {
+                        map.fitBounds(L.featureGroup(allFeaturesData.map(i => L.marker(i.latlng))).getBounds());
                     }
-
-                    status.innerHTML = `<i class="bi bi-check-circle-fill text-success me-2"></i>Карта побудована! (${result.features.length} адрес)`;
-                } else {
-                    status.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Помилка: ${result.error}`;
+                    
+                    status.innerHTML = `<span class="text-success">Готово! (${result.features.length})</span>`;
                 }
-            } catch (error) {
-                status.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Помилка з\'єднання із сервером';
-            } finally {
-                btn.disabled = false;
+            } catch (e) { 
+                status.innerHTML = '<span class="text-danger">Помилка</span>'; 
+            } finally { 
+                btn.disabled = false; 
             }
         });
 
-        // Проста логіка пошуку
         function searchAddress() {
-            const query = document.getElementById('addressSearch').value.toLowerCase();
-            if(query.length < 3) return;
-
-            const found = allFeaturesData.find(item => item.feature.properties.address.toLowerCase().includes(query));
-            if (found) {
-                map.setView(found.latlng, 18);
-                // Можна додати анімацію або відкриття попапу
+            const q = document.getElementById('addressSearch').value.toLowerCase();
+            if(q.length < 3) return;
+            
+            const f = allFeaturesData.find(i => i.address.includes(q));
+            if (f) { 
+                map.setView(f.latlng, 18); 
+                f.layer.openPopup(); 
             }
         }
     </script>
