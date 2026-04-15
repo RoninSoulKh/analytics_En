@@ -111,6 +111,14 @@
             margin-right: 10px;
             display: inline-block;
         }
+        [data-theme="dark"] .leaflet-popup-content-wrapper,
+        [data-theme="dark"] .leaflet-popup-tip {
+            background-color: var(--bg-card);
+            color: var(--text-main);
+        }
+        [data-theme="dark"] .popup-address {
+            color: #60a5fa !important;
+        }
     </style>
 </head>
 <body>
@@ -156,7 +164,7 @@
             <h6 class="fw-bold mb-2" style="font-size: 0.9rem;">Легенда:</h6>
             <div class="legend-box"><span class="legend-color" style="background: #dc3545;"></span> Свіжий обхід (останні 2 міс.)</div>
             <div class="legend-box"><span class="legend-color" style="background: #ffc107;"></span> Старий обхід (+1 міс. назад)</div>
-            <div class="legend-box"><span class="legend-color" style="background: #000; border: 2px solid red;"></span> ⚠️ Недопуск (&lt; 2 міс.)</div>
+            <div class="legend-box"><span class="legend-color" style="background: transparent; border: 3px solid #dc3545;"></span> ⚠️ Недопуск (&lt; 2 міс.)</div>
         </div>
     </div>
 
@@ -218,9 +226,9 @@
                             
                             const popup = `
                                 <div style="min-width: 160px;">
-                                    <h6 class="fw-bold mb-1" style="color: var(--text-main);">${feature.properties.address}</h6>
+                                    <h6 class="popup-address fw-bold mb-1" style="color: var(--text-main);">${feature.properties.address}</h6>
                                     <div class="small fw-bold" style="color: ${feature.properties.text_color}">${feature.properties.status}</div>
-                                    ${feature.properties.has_nedopusk ? '<div class="text-danger small fw-bold mt-1">⚠️ Недопуск</div>':''}
+                                    ${feature.properties.has_nedopusk ? `<div class="text-danger small fw-bold mt-1">⚠️ Недопуск (від ${feature.properties.nedopusk_date})</div>`:''}
                                 </div>`;
                                 
                             marker.bindPopup(popup); 
@@ -244,11 +252,11 @@
                             
                             if(feature.properties.has_nedopusk) {
                                 nedopuskiLayer.addLayer(L.circleMarker(latlng, { 
-                                    radius: 7, 
-                                    fillColor: "#000", 
+                                    radius: 12, 
+                                    fillColor: "transparent", 
                                     color: "#dc3545", 
-                                    weight: 2, 
-                                    fillOpacity: 0.8 
+                                    weight: 4, 
+                                    fillOpacity: 0 
                                 }).bindPopup(popup));
                             }
                             

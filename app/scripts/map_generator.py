@@ -94,11 +94,11 @@ def get_or_fetch_geojson(full_addr: str, db_path: str, api_key: str):
 
 def parse_nedopuski_in_memory(file_bytes):
     if not file_bytes:
-        return set()
+        return {}
         
     try:
         df = pd.read_excel(io.BytesIO(file_bytes), engine='odf', header=None)
-        nedopuski_addresses = set()
+        nedopuski_data = {}
         current_date = datetime.now()
         
         for idx in range(1, len(df)):
@@ -113,17 +113,18 @@ def parse_nedopuski_in_memory(file_bytes):
                 n_date = pd.to_datetime(date_val, dayfirst=True)
                 months_diff = (current_date.year - n_date.year) * 12 + current_date.month - n_date.month
                 if months_diff < 2:
-                    nedopuski_addresses.add(clean_address_for_api(street, house))
+                    clean_addr = clean_address_for_api(street, house)
+                    nedopuski_data[clean_addr] = n_date.strftime('%d.%m.%Y')
             except:
                 pass
                 
-        return nedopuski_addresses
+        return nedopuski_data
     except Exception as e:
         print(f"Помилка парсингу Недопусків: {e}")
-        return set()
+        return {}
 
 def process_map_file(file_path: str, db_path: str, api_key: str, nedopuski_bytes=None):
-    df = pd.read_excel(file_path, sheet_name='2025', engine='odf', header=None)
+    df = pd.read_excel(file_path, sheet_name=0, engine='odf', header=None)
     df[0] = df[0].replace(r'^\s*$', pd.NA, regex=True).ffill()
     
     recent_nedopuski = parse_nedopuski_in_memory(nedopuski_bytes)
@@ -158,12 +159,17 @@ def process_map_file(file_path: str, db_path: str, api_key: str, nedopuski_bytes
         feature = get_or_fetch_geojson(clean_addr, db_path, api_key)
         
         if feature:
+            addr_clean = clean_address_for_api(street, house)
+            has_nedopusk = addr_clean in recent_nedopuski
+            date_nedopusk = recent_nedopuski.get(addr_clean, "")
+            
             feature['properties'] = {
-                'address': clean_addr, 
+                'address': addr_clean, 
                 'color': "#dc3545", 
                 'text_color': "#dc3545",
                 'status': "Свіжий обхід",
-                'has_nedopusk': clean_addr in recent_nedopuski,
+                'has_nedopusk': has_nedopusk,
+                'nedopusk_date': date_nedopusk,
                 'is_active': True
             }
             features.append(feature)
