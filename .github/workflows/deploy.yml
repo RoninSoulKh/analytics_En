@@ -26,5 +26,6 @@ jobs:
 
       - name: Build and Restart Docker
         run: |
-          /usr/bin/docker compose down
+          /usr/bin/docker rm -f energy_web_app_diggy || true
+          /usr/bin/docker rm -f cloudflare_tunnel || true
           /usr/bin/docker compose up -d --build --remove-orphans
