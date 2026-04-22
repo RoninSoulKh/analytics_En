@@ -41,7 +41,9 @@ def clean_address_for_api(street: str, house: str) -> str:
     return ' '.join(addr.split())
 
 def fetch_polygon_from_visicom(clean_addr: str, api_key: str):
-    variants = [f"Харків, {clean_addr}", clean_addr]
+    params = {"text": f"Харківська область, {clean_addr}", "key": api_key, "limit": 1}
+    try:
+        resp = requests.get(VISICOM_API_UK, params=params, timeout=5)
     
     for variant in variants:
         params = {"text": variant, "key": api_key, "limit": 1}

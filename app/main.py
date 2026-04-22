@@ -354,7 +354,8 @@ async def map_generate(
         nedopuski_bytes = await nedopuski_file.read()
         
     try:
-        geojson_data = process_map_file(temp_path, DB_FILE, api_key, nedopuski_bytes)
+        import asyncio
+        geojson_data = await asyncio.to_thread(process_map_file, temp_path, DB_FILE, api_key, nedopuski_bytes)
         return JSONResponse(geojson_data)
     except Exception as e:
         print(f"Map processing error: {e}")
