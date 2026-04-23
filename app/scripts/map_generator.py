@@ -41,16 +41,18 @@ def clean_address_for_api(street: str, house: str) -> str:
     return ' '.join(addr.split())
 
 def fetch_polygon_from_visicom(clean_addr: str, api_key: str):
-    params = {"text": f"Харківська область, {clean_addr}", "key": api_key, "limit": 1}
-    try:
-        resp = requests.get(VISICOM_API_UK, params=params, timeout=5)
+    search_api_url = "https://api.visicom.ua/data-api/5.0/uk/search.json"
+    
+    variants = [
+        f"м. Харків, {clean_addr}",
+        f"Харків, {clean_addr}"
+    ]
     
     for variant in variants:
         params = {"text": variant, "key": api_key, "limit": 1}
         try:
-            resp = requests.get(VISICOM_API_UK, params=params, timeout=5)
+            resp = requests.get(search_api_url, params=params, timeout=5)
             if resp.status_code != 200:
-                print(f"\n[!] Помилка API: Код {resp.status_code}")
                 time.sleep(1)
                 continue
             
@@ -60,12 +62,14 @@ def fetch_polygon_from_visicom(clean_addr: str, api_key: str):
                  if "geometry" not in feat:
                      feat["geometry"] = feat.get("geo_centroid")
                  if feat.get("geometry"):
+                     import json
                      return json.dumps(feat)
                      
             elif data.get('type') == 'Feature':
                  if "geometry" not in data:
                      data["geometry"] = data.get("geo_centroid")
                  if data.get("geometry"):
+                     import json
                      return json.dumps(data)
                      
         except requests.exceptions.Timeout:
