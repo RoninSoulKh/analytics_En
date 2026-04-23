@@ -57,6 +57,12 @@ def fetch_polygon_from_visicom(clean_addr: str, api_key: str):
                 continue
             
             data = resp.json()
+            
+            # --- ЗАЩИТА ОТ ПУСТОГО ОТВЕТА API ---
+            if not isinstance(data, dict):
+                continue
+            # ------------------------------------
+            
             if data.get('type') == 'FeatureCollection' and data.get("features"):
                  feat = data["features"][0]
                  if "geometry" not in feat:
@@ -74,7 +80,8 @@ def fetch_polygon_from_visicom(clean_addr: str, api_key: str):
                      
         except requests.exceptions.Timeout:
             time.sleep(1)
-        except Exception:
+        except Exception as e:
+            print(f"Помилка парсингу: {e}")
             pass
         
         time.sleep(0.4) 
