@@ -28,4 +28,5 @@ jobs:
         run: |
           /usr/bin/docker rm -f energy_web_app_diggy || true
           /usr/bin/docker rm -f cloudflare_tunnel || true
-          /usr/bin/docker compose up -d --build --remove-orphans
+          /usr/bin/docker compose build --no-cache
+          /usr/bin/docker compose up -d --remove-orphans
