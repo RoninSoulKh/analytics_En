@@ -11,7 +11,9 @@ services:
       - VISICOM_DATA_KEY=${VISICOM_DATA_KEY}
       - VISICOM_TILES_KEY=${VISICOM_TILES_KEY}
     volumes:
-      - ./security_logs.db:/code/security_logs.db
+      - ./uploads:/code/uploads
+      - ./downloads:/code/downloads
+      - /home/diggy/energy_analytics/security_logs.db:/code/security_logs.db
     restart: always
 
   cloudflared:
