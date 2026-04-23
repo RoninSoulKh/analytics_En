@@ -79,6 +79,7 @@ def fetch_polygon_from_visicom(clean_addr: str, api_key: str):
         
         time.sleep(0.4) 
     return None
+    
 
 def get_or_fetch_geojson(full_addr: str, db_path: str, api_key: str):
     with sqlite3.connect(db_path) as conn:
