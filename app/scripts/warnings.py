@@ -15,20 +15,24 @@ def run_warnings_analysis(input_path: str, output_dir: str) -> str:
         # Пропускаємо перші 3 рядки складної шапки
         df = pd.read_excel(input_path, sheet_name='Поіменний', skiprows=3, header=None)
         
-        # Перейменовуємо колонки за індексами
+        # ДОДАНО: 14 (Сума боргу по відпрацьованим) та 15 (Фактична оплата всього)
         df.rename(columns={
             0: 'РРСЦ', 1: 'ПІБ', 3: 'Вулиця', 4: 'Будинок', 5: 'Квартира',
-            10: 'Дата', 16: 'Вруч_шт', 18: 'Вруч_сума', 22: 'Шпарина_шт', 24: 'Шпарина_сума'
+            14: 'Сума_боргу', 10: 'Дата', 15: 'Фактична_оплата',
+            16: 'Вруч_шт', 18: 'Вруч_сума', 22: 'Шпарина_шт', 24: 'Шпарина_сума'
         }, inplace=True)
         
-        df = df[['РРСЦ', 'ПІБ', 'Вулиця', 'Будинок', 'Квартира', 'Дата', 'Вруч_шт', 'Вруч_сума', 'Шпарина_шт', 'Шпарина_сума']].copy()
+        df = df[['РРСЦ', 'ПІБ', 'Вулиця', 'Будинок', 'Квартира', 'Дата', 'Сума_боргу', 'Фактична_оплата', 'Вруч_шт', 'Вруч_сума', 'Шпарина_шт', 'Шпарина_сума']].copy()
         df.dropna(subset=['ПІБ', 'Вулиця'], inplace=True)
         
-        for col in ['Вруч_шт', 'Вруч_сума', 'Шпарина_шт', 'Шпарина_сума']:
+        for col in ['Сума_боргу', 'Фактична_оплата', 'Вруч_шт', 'Вруч_сума', 'Шпарина_шт', 'Шпарина_сума']:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
         df['Дата'] = pd.to_datetime(df['Дата'], errors='coerce', dayfirst=True).dt.strftime('%d.%m.%Y').fillna('-')
         df = fill_missing_dates(df)
+        
+        # ЛОГІКА ОПЛАТ: Якщо оплата більше 0 (навіть 1 копійка), рахуємо як 1 шт
+        df['Оплата_шт'] = (df['Фактична_оплата'] > 0).astype(int)
         
         rrsc_name = df['РРСЦ'].iloc[0] if not df['РРСЦ'].empty else "Невідомий РРСЦ"
 
@@ -37,6 +41,9 @@ def run_warnings_analysis(input_path: str, output_dir: str) -> str:
             'Будинок': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))),
             'Дата': lambda x: '\n'.join(sorted(set(x.dropna().astype(str)))),
             'РРСЦ': 'count',
+            'Сума_боргу': 'sum',
+            'Оплата_шт': 'sum',
+            'Фактична_оплата': 'sum',
             'Вруч_шт': 'sum', 
             'Вруч_сума': 'sum',
             'Шпарина_шт': 'sum',
@@ -50,18 +57,24 @@ def run_warnings_analysis(input_path: str, output_dir: str) -> str:
         # --- АГРЕГАЦІЯ ДЛЯ ЛИСТА 4 (Зведена статистика) ---
         summary_df = grouped_df.groupby('ПІБ').agg({
             'Всього_в_роботі': 'sum',
+            'Сума_боргу': 'sum',
+            'Оплата_шт': 'sum',
             'Вруч_шт': 'sum',
-            'Шпарина_шт': 'sum',
             'Вруч_сума': 'sum',
-            'Шпарина_сума': 'sum'
+            'Шпарина_шт': 'sum',
+            'Шпарина_сума': 'sum',
+            'Фактична_оплата': 'sum'
         }).reset_index()
-        summary_df['Всього сплат'] = summary_df['Вруч_сума'] + summary_df['Шпарина_сума']
 
         # Підрахунок загальних сум для футера Зведеної статистики
         total_in_work = summary_df['Всього_в_роботі'].sum()
+        total_debt = summary_df['Сума_боргу'].sum()
+        total_pay_count = summary_df['Оплата_шт'].sum()
         total_in_hands = summary_df['Вруч_шт'].sum()
+        total_hands_sum = summary_df['Вруч_сума'].sum()
         total_in_door = summary_df['Шпарина_шт'].sum()
-        total_payments = summary_df['Всього сплат'].sum()
+        total_door_sum = summary_df['Шпарина_сума'].sum()
+        total_payments = summary_df['Фактична_оплата'].sum()
 
         # --- ГЕНЕРАЦІЯ ФАЙЛУ ---
         uid = str(uuid.uuid4())[:8]
@@ -132,9 +145,15 @@ def run_warnings_analysis(input_path: str, output_dir: str) -> str:
         cols_width3 = {'A': 20, 'B': 12, 'C': 60, 'D': 15, 'E': 15, 'F': 15, 'G': 15, 'H': 15}
         for col, width in cols_width3.items(): ws3.column_dimensions[col].width = width
 
-        # --- ЛИСТ 4: ЗВЕДЕНА СТАТИСТИКА ---
+        # --- ЛИСТ 4: ЗВЕДЕНА СТАТИСТИКА (ОНОВЛЕНО ЗА ТЗ) ---
         ws4 = wb.create_sheet("Зведена стат.")
-        headers_summary = ["РРСЦ", "ПІБ відповідальний", "Всього в роботі", "Всього вручено", "Всього в шпарину", "Всього сплат"]
+        
+        # Нова красива послідовність
+        headers_summary = [
+            "РРСЦ", "ПІБ відповідальний", "Видано в роботу, шт.", "Загальна сума боргу, грн.",
+            "Кількість оплат, шт.", "Вручено особисто, шт.", "Оплати з врученого, грн.",
+            "В шпарину, шт.", "Оплати зі шпарини, грн.", "Всього сплат, грн.", "% оплат"
+        ]
         ws4.append(headers_summary)
         
         for col_num, header in enumerate(headers_summary, 1):
@@ -144,32 +163,68 @@ def run_warnings_analysis(input_path: str, output_dir: str) -> str:
 
         sum_row = 2
         for _, row_data in summary_df.iterrows():
-            ws4.append([rrsc_name, row_data['ПІБ'], row_data['Всього_в_роботі'], row_data['Вруч_шт'], row_data['Шпарина_шт'], row_data['Всього сплат']])
-            for c in range(1, 7):
-                ws4.cell(row=sum_row, column=c).border = thin_border
-                ws4.cell(row=sum_row, column=c).alignment = center_align if c != 2 else left_align
+            debt = row_data['Сума_боргу']
+            payment = row_data['Фактична_оплата']
+            # Захист від ділення на нуль
+            percent = (payment / debt) if debt > 0 else 0
+
+            ws4.append([
+                rrsc_name,
+                row_data['ПІБ'],
+                row_data['Всього_в_роботі'],
+                debt,
+                row_data['Оплата_шт'],
+                row_data['Вруч_шт'],
+                row_data['Вруч_сума'],
+                row_data['Шпарина_шт'],
+                row_data['Шпарина_сума'],
+                payment,
+                percent
+            ])
+            
+            for c in range(1, 12):
+                cell = ws4.cell(row=sum_row, column=c)
+                cell.border = thin_border
+                cell.alignment = left_align if c == 2 else center_align
+                
+            # Перетворюємо десятковий дріб у гарний відсоток (напр. 0.15 -> 15.00%)
+            ws4.cell(row=sum_row, column=11).number_format = '0.00%'
             sum_row += 1
 
-        # ФУТЕР ЛИСТА 4 (Загальний підсумок)
+        # --- ФУТЕР ЛИСТА 4 (Загальний підсумок) ---
+        total_percent = (total_payments / total_debt) if total_debt > 0 else 0
+        
         ws4.cell(row=sum_row, column=1, value="ВСЬОГО ПО РРСЦ:").font = Font(bold=True, color="FFFFFF")
         ws4.cell(row=sum_row, column=1).alignment = Alignment(horizontal="right")
         ws4.cell(row=sum_row, column=1).fill = header_fill
         ws4.merge_cells(start_row=sum_row, start_column=1, end_row=sum_row, end_column=2)
         
         ws4.cell(row=sum_row, column=3, value=total_in_work).font = Font(bold=True)
-        ws4.cell(row=sum_row, column=4, value=total_in_hands).font = Font(bold=True)
-        ws4.cell(row=sum_row, column=5, value=total_in_door).font = Font(bold=True)
-        ws4.cell(row=sum_row, column=6, value=total_payments).font = Font(bold=True)
+        ws4.cell(row=sum_row, column=4, value=total_debt).font = Font(bold=True)
+        ws4.cell(row=sum_row, column=5, value=total_pay_count).font = Font(bold=True)
+        ws4.cell(row=sum_row, column=6, value=total_in_hands).font = Font(bold=True)
+        ws4.cell(row=sum_row, column=7, value=total_hands_sum).font = Font(bold=True)
+        ws4.cell(row=sum_row, column=8, value=total_in_door).font = Font(bold=True)
+        ws4.cell(row=sum_row, column=9, value=total_door_sum).font = Font(bold=True)
+        ws4.cell(row=sum_row, column=10, value=total_payments).font = Font(bold=True)
+        ws4.cell(row=sum_row, column=11, value=total_percent).font = Font(bold=True)
         
-        for c in range(1, 7):
-            ws4.cell(row=sum_row, column=c).border = thin_border
+        for c in range(1, 12):
+            cell = ws4.cell(row=sum_row, column=c)
+            cell.border = thin_border
             if c > 2:
-                ws4.cell(row=sum_row, column=c).alignment = center_align
-                ws4.cell(row=sum_row, column=c).fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+                cell.alignment = center_align
+                cell.fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+                
+        ws4.cell(row=sum_row, column=11).number_format = '0.00%'
 
-        # Ширина колонок Лист 4
-        cols_width4 = {'A': 20, 'B': 40, 'C': 15, 'D': 15, 'E': 15, 'F': 15}
-        for col, width in cols_width4.items(): ws4.column_dimensions[col].width = width
+        # Ширина колонок Лист 4 (оновлено під нові 11 колонок)
+        cols_width4 = {
+            'A': 20, 'B': 40, 'C': 12, 'D': 15, 'E': 12, 
+            'F': 12, 'G': 15, 'H': 12, 'I': 15, 'J': 15, 'K': 12
+        }
+        for col, width in cols_width4.items(): 
+            ws4.column_dimensions[col].width = width
 
         wb.save(out_path)
         return out_filename
